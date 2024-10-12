@@ -5,16 +5,104 @@ import Voting from './Voting';
 import Notes from './Notes';
 
 // Initialize the socket connection
-const socket = io('http://127.0.0.1:5000');
-
-
+// const socket = io('http://127.0.0.1:5000');
+const socket = io('http://127.0.0.1:5000', {
+     withCredentials: true,
+     extraHeaders: {
+       "my-custom-header": "abcd"
+     }
+   });
 function Game() {
-  const [step, setStep] = useState('menu'); // 'menu', 'lobby', 'game'
+  const [step, setStep] = useState('menu'); // 'menu', 'lobby', 'game', 'night', etc.
   const [gameId, setGameId] = useState('');
   const [playerId, setPlayerId] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [role, setRole] = useState('');
   const [players, setPlayers] = useState([]);
+  const [targetId, setTargetId] = useState(''); // Added state for target player
+  const [timer, setTimer] = useState(0);
+
+  useEffect(() => {
+    if (step === 'game') {
+      // Start day phase timer (e.g., 60 seconds)
+      setTimer(60);
+    } else if (step === 'night') {
+      // Start night phase timer (e.g., 30 seconds)
+      setTimer(30);
+    }
+  }, [step]);
+  
+
+  useEffect(() => {
+    let interval = null;
+    if (timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prevTimer) => prevTimer - 1);
+      }, 1000);
+    } else if (timer === 0) {
+      // Time's up, proceed to the next phase or take appropriate action
+      if (step === 'game') {
+        // For example, auto-submit votes or end the day phase
+      } else if (step === 'night') {
+        // Auto-submit night actions or proceed to day phase
+      }
+    }
+    return () => clearInterval(interval);
+  }, [timer, step]);
+  
+
+  useEffect(() => {
+    socket.on('night_started', (data) => {
+      if (data.game_id === gameId) {
+        alert('Night phase has started.');
+        setStep('night');
+      }
+    });
+
+    return () => {
+      socket.off('night_started');
+    };
+  }, [gameId]);
+
+
+  useEffect(() => {
+    // Listen for vote_cast events
+    socket.on('vote_cast', (data) => {
+      if (data.game_id === gameId) {
+        // Optionally update UI to reflect voting progress
+        console.log(`Player ${data.voter_id} voted for ${data.target_id}`);
+      }
+    });
+
+    // Listen for player_eliminated events
+    socket.on('player_eliminated', (data) => {
+      if (data.game_id === gameId) {
+        alert(`Player ${data.player_id} has been eliminated.`);
+        // Update the players state to mark the player as eliminated
+        setPlayers((prevPlayers) =>
+          prevPlayers.map((player) =>
+            player.id === data.player_id ? { ...player, alive: false } : player
+          )
+        );
+      }
+    });
+
+    // Listen for game_over events
+    socket.on('game_over', (data) => {
+      if (data.game_id === gameId) {
+        alert(`${data.winner} have won the game!`);
+        setStep('game_over');
+      }
+    });
+
+    // Clean up event listeners on unmount
+    return () => {
+      socket.off('vote_cast');
+      socket.off('player_eliminated');
+      socket.off('game_over');
+    };
+  }, [gameId]);
+
 
   useEffect(() => {
     if (gameId && playerId) {
@@ -29,7 +117,7 @@ function Game() {
         .catch(error => {
           console.error('Error fetching players:', error);
         });
-      
+
       // Listen for the player_joined event
       socket.on('player_joined', (data) => {
         // alert the update on browser
@@ -37,7 +125,7 @@ function Game() {
           setPlayers(data.players);
         }
       });
-      
+
     }
   }, [gameId, playerId]);
 
@@ -46,7 +134,7 @@ function Game() {
     socket.on('game_started', (data) => {
       if (data.game_id === gameId) {
         setPlayers(data.players);
-  
+
         // Fetch the player's role
         axios.get('http://127.0.0.1:5000/get_role', { params: { game_id: gameId, player_id: playerId } })
           .then(response => {
@@ -59,7 +147,23 @@ function Game() {
       }
     });
   }, [gameId, playerId]);
-  
+
+  const submitMafiaAction = async () => {
+    try {
+      // Emit the 'mafia_action' event to the server
+      socket.emit('mafia_action', {
+        game_id: gameId,
+        player_id: playerId,
+        target_id: targetId,
+      });
+      // Optionally, you can set the step to wait for the next phase
+      // setStep('waiting_for_day');
+    } catch (error) {
+      console.error('Error submitting Mafia action:', error);
+    }
+  };
+
+
 
   // Function to create a new game
   const createGame = async () => {
@@ -147,11 +251,41 @@ function Game() {
       )}
       {step === 'game' && (
         <div>
+          <h2>{step === 'game' ? 'Day Phase' : 'Night Phase'}</h2>
+          <p>Time remaining: {timer} seconds</p>
           <p>Your role: <strong>{role}</strong></p>
-          <Voting players={players} onVote={() => {}} />
+          <br />
+          <Voting players={players} gameId={gameId} playerId={playerId} />
           <Notes />
         </div>
       )}
+      {step === 'night' && (
+        <div>
+          <p>Perform your night actions if applicable.</p>
+          {/* Implement night actions for special roles */}
+        </div>
+      )}
+      {step === 'night' && role === 'Mafia' && (
+        <div>
+          <h2>Mafia Action</h2>
+          <select onChange={(e) => setTargetId(e.target.value)} value={targetId}>
+            <option value="">Select a player to eliminate</option>
+            {players
+              .filter((p) => p.alive && p.id !== playerId)
+              .map((player) => (
+                <option key={player.id} value={player.id}>
+                  {player.name}
+                </option>
+              ))}
+          </select>
+          <button onClick={submitMafiaAction} disabled={!targetId}>
+            Submit
+          </button>
+
+        </div>
+      )}
+
+
     </div>
   );
 }
