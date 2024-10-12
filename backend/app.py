@@ -6,12 +6,24 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 app = Flask(__name__)
 CORS(app)
 
-#socketio = SocketIO(app, cors_allowed_origins="*")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # In-memory storage for players (for development purposes)
 players = {}
 games = {}
+
+# get players app route for game id
+@app.route('/get_players', methods=['GET'])
+def get_players():
+    game_id = request.args.get('game_id')
+    if not game_id:
+        return jsonify({'error': 'Game ID is required'}), 400
+
+    game = games.get(game_id)
+    if not game:
+        return jsonify({'error': 'Game not found'}), 404
+
+    return jsonify({'players': list(game['players'].values())}), 200
 
 @app.route('/join_game', methods=['POST'])
 def join_game():
@@ -146,4 +158,4 @@ def handle_join_room(data):
 
 
 if __name__ == '__main__':
-    socketio.run(app, host='127.0.0.1', port=5000)
+    socketio.run(app, host='127.0.0.1', port=5000, debug=True)
