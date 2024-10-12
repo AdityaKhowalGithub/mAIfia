@@ -14,6 +14,9 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 # Initialize AWS Polly client
 polly_client = boto3.client('polly', region_name='us-east-1')  # Replace with your AWS region
 
+# Initialize AWS Bedrock client
+bedrock_client = boto3.client('bedrock', region_name='us-east-1')  # Replace with your AWS region
+
 # In-memory storage for players (for development purposes)
 players = {}
 games = {}
@@ -69,6 +72,8 @@ def join_game():
 def create_game():
     data = request.get_json()
     host_name = data.get('name')
+    include_ai = data.get('include_ai', False)
+
     if not host_name:
         return jsonify({'error': 'Name is required'}), 400
 
@@ -88,7 +93,8 @@ def create_game():
                 'alive': True
             }
         },
-        'status': 'waiting'  # Game status can be 'waiting', 'in_progress', or 'ended'
+        'status': 'waiting',  # Game status can be 'waiting', 'in_progress', or 'ended'
+        'include_ai': include_ai
     }
 
     return jsonify({'game_id': game_id, 'player_id': player_id}), 200
@@ -123,6 +129,18 @@ def start_game():
     if game['status'] != 'waiting':
         return jsonify({'error': 'Game has already started or ended'}), 400
 
+    # Add AI player if included
+    if game.get('include_ai'):
+        ai_player_id = str(uuid.uuid4())
+        game['players'][ai_player_id] = {
+            'id': ai_player_id,
+            'name': 'AI Player',
+            'role': None,
+            'alive': True,
+            'is_ai': True
+        }
+        game['ai_player_id'] = ai_player_id
+
     # Assign roles to players
     assign_roles(game)
 
@@ -139,8 +157,45 @@ def start_night_phase(game_id):
     game = games[game_id]
     game['phase'] = 'night'
 
+    # If AI is Mafia and alive, have it perform action
+    ai_player = game['players'].get(game.get('ai_player_id'))
+    if ai_player and ai_player['alive'] and ai_player['role'] == 'Mafia':
+        ai_target_id = ai_mafia_action(game)
+        game['mafia_target_id'] = ai_target_id
+
     # Emit an event to notify players
     socketio.emit('night_started', {'game_id': game_id}, room=game_id)
+
+# AI Mafia action using Bedrock
+def ai_mafia_action(game):
+    alive_players = [p for p in game['players'].values() if p['alive'] and not p.get('is_ai')]
+    if not alive_players:
+        return None
+
+    # Prepare prompt for Bedrock
+    prompt = "Select a player to eliminate: "
+    prompt += ", ".join([p['name'] for p in alive_players])
+
+    # Call Bedrock to get AI decision
+    try:
+        response = bedrock_client.invoke_model(
+            modelId='your-model-id',  # Replace with your model ID
+            contentType='text/plain',
+            accept='application/json',
+            body=prompt.encode('utf-8')
+        )
+        result = response['body'].read().decode('utf-8').strip()
+        # Map result back to player ID
+        target_player = next((p for p in alive_players if p['name'] == result), None)
+        if target_player:
+            return target_player['id']
+    except Exception as e:
+        print('Error invoking Bedrock model:', e)
+        # Fallback to random selection
+        return random.choice(alive_players)['id']
+
+    # Fallback to random selection
+    return random.choice(alive_players)['id']
 
 # Get the role of a player
 @app.route('/get_role', methods=['GET'])
@@ -172,24 +227,26 @@ def handle_join_room(data):
     print(f"Player {player_id} joined game {game_id}")
 
 # Submit a vote during the day phase
-@app.route('/submit_vote', methods=['POST'])
-def submit_vote():
-    data = request.get_json()
+@socketio.on('submit_vote')
+def submit_vote(data):
     game_id = data.get('game_id')
     player_id = data.get('player_id')
     target_id = data.get('target_id')
 
     if not game_id or not player_id or not target_id:
         print("Invalid data", data)
-        return jsonify({'error': 'Game ID, Player ID, and Target ID are required'}), 400
+        emit('error', {'error': 'Game ID, Player ID, and Target ID are required'})
+        return
 
     game = games.get(game_id)
     if not game:
-        return jsonify({'error': 'Game not found'}), 404
+        emit('error', {'error': 'Game not found'})
+        return
 
     if game['status'] != 'in_progress':
         print("Game not in progress")
-        return jsonify({'error': 'Game is not in progress'}), 400
+        emit('error', {'error': 'Game is not in progress'})
+        return
 
     # Initialize votes dictionary if it doesn't exist
     if 'votes' not in game:
@@ -206,12 +263,56 @@ def submit_vote():
     }, room=game_id)
 
     # Check if all alive players have voted
-    alive_players = [p_id for p_id, p in game['players'].items() if p['alive']]
-    if len(game['votes']) == len(alive_players):
+    alive_players = [p_id for p_id, p in game['players'].items() if p['alive'] and not p.get('is_ai')]
+    total_votes = len(game['votes'])
+
+    # If AI player exists and alive, have it vote
+    ai_player = game['players'].get(game.get('ai_player_id'))
+    if ai_player and ai_player['alive'] and ai_player['id'] not in game['votes']:
+        ai_vote = ai_vote_action(game)
+        game['votes'][ai_player['id']] = ai_vote
+        total_votes += 1
+        # Emit AI's vote
+        socketio.emit('vote_cast', {
+            'game_id': game_id,
+            'voter_id': ai_player['id'],
+            'target_id': ai_vote
+        }, room=game_id)
+
+    if total_votes == len([p for p in game['players'].values() if p['alive']]):
         # Tally votes and proceed to elimination
         eliminate_player(game_id)
 
-    return jsonify({'status': 'Vote submitted'}), 200
+# AI vote action using Bedrock
+def ai_vote_action(game):
+    alive_players = [p for p in game['players'].values() if p['alive'] and not p.get('is_ai')]
+    if not alive_players:
+        return None
+
+    # Prepare prompt for Bedrock
+    prompt = "Based on the game so far, who should be eliminated? "
+    prompt += ", ".join([p['name'] for p in alive_players])
+
+    # Call Bedrock to get AI decision
+    try:
+        response = bedrock_client.invoke_model(
+            modelId='your-model-id',  # Replace with your model ID
+            contentType='text/plain',
+            accept='application/json',
+            body=prompt.encode('utf-8')
+        )
+        result = response['body'].read().decode('utf-8').strip()
+        # Map result back to player ID
+        target_player = next((p for p in alive_players if p['name'] == result), None)
+        if target_player:
+            return target_player['id']
+    except Exception as e:
+        print('Error invoking Bedrock model:', e)
+        # Fallback to random selection
+        return random.choice(alive_players)['id']
+
+    # Fallback to random selection
+    return random.choice(alive_players)['id']
 
 # Eliminate a player based on votes
 def eliminate_player(game_id):

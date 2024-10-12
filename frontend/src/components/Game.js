@@ -21,10 +21,11 @@ function Game() {
   const [players, setPlayers] = useState([]);
   const [targetId, setTargetId] = useState(''); // State for target player
   const [timer, setTimer] = useState(0);
+  const [includeAI, setIncludeAI] = useState(false); // New state to include AI player
 
   useEffect(() => {
-    if (step === 'day') setTimer(10);
-    else if (step === 'night') setTimer(30);
+    if (step === 'day') setTimer(30);
+    else if (step === 'night') setTimer(10);
   }, [step]);
 
   useEffect(() => {
@@ -39,41 +40,11 @@ function Game() {
 
   const handleTimerEnd = () => {
     if (step === 'day') {
-      submitMajorityVote();
+      // Players should have submitted votes via the UI
       setStep('night');
     } else if (step === 'night') {
-      socket.emit('night_actions_complete', { game_id: gameId, player_id: playerId });
+      // Mafia should have performed action
       setStep('day');
-    }
-  };
-
-  const submitMajorityVote = () => {
-    const majorityVote = {};
-    players.forEach((player) => {
-      if (player.alive) majorityVote[player.id] = player.votedTarget || null;
-    });
-
-    const targetVotes = Object.keys(majorityVote).reduce((acc, id) => {
-      if (majorityVote[id]) {
-        acc[majorityVote[id]] = (acc[majorityVote[id]] || 0) + 1;
-      }
-      return acc;
-    }, {});
-
-    const playersToEliminate = Object.keys(targetVotes).filter(
-      (key) => targetVotes[key] === Math.max(...Object.values(targetVotes))
-    );
-
-    const eliminatedPlayer = playersToEliminate.length
-      ? playersToEliminate[Math.floor(Math.random() * playersToEliminate.length)]
-      : null;
-
-    if (eliminatedPlayer) {
-      socket.emit('submit_vote', {
-        game_id: gameId,
-        player_id: playerId,
-        target_id: eliminatedPlayer,
-      });
     }
   };
 
@@ -206,7 +177,7 @@ function Game() {
 
   const createGame = async () => {
     try {
-      const response = await axios.post('http://127.0.0.1:5000/create_game', { name: playerName });
+      const response = await axios.post('http://127.0.0.1:5000/create_game', { name: playerName, include_ai: includeAI });
       setGameId(response.data.game_id);
       setPlayerId(response.data.player_id);
       setStep('lobby');
@@ -236,6 +207,14 @@ function Game() {
     }
   };
 
+  const submitVote = (targetId) => {
+    socket.emit('submit_vote', {
+      game_id: gameId,
+      player_id: playerId,
+      target_id: targetId,
+    });
+  };
+
   return (
     <div style={{ padding: '20px' }}>
       <h1>Mafia Game</h1>
@@ -247,6 +226,14 @@ function Game() {
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
           />
+          <label>
+            <input
+              type="checkbox"
+              checked={includeAI}
+              onChange={(e) => setIncludeAI(e.target.checked)}
+            />
+            Include AI Player
+          </label>
           <button onClick={createGame} disabled={!playerName}>Create Game</button>
           <hr />
           <input
@@ -289,7 +276,7 @@ function Game() {
           <ul style={{ listStyleType: 'none', margin: 0, padding: 0 }}>
             {players.map((player) => (
               <li key={player.id}>
-                {player.name} {player.alive ? '' : '(eliminated)'}
+                {player.name} {player.alive ? '' : '(eliminated)'} {player.is_ai ? '(AI)' : ''}
               </li>
             ))}
           </ul>
@@ -298,7 +285,7 @@ function Game() {
               <h3>Select a target to eliminate:</h3>
               <select onChange={(e) => setTargetId(e.target.value)}>
                 <option value="">Select player</option>
-                {players.filter((player) => player.alive && player.id !== playerId).map((player) => (
+                {players.filter((player) => player.alive && player.id !== playerId && !player.is_ai).map((player) => (
                   <option key={player.id} value={player.id}>{player.name}</option>
                 ))}
               </select>
@@ -306,7 +293,13 @@ function Game() {
             </div>
           )}
           {step === 'day' && (
-            <Voting players={players} gameId={gameId} playerId={playerId} setTargetId={setTargetId} />
+            <Voting
+              players={players}
+              gameId={gameId}
+              playerId={playerId}
+              setTargetId={setTargetId}
+              submitVote={submitVote}
+            />
           )}
           <Notes />
         </div>
