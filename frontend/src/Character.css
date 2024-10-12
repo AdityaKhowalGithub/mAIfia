@@ -1,0 +1,33 @@
+.character-container {
+  display: inline-block;
+  width: 150px;
+  height: 200px;
+  position: relative;
+}
+
+.character-sprite {
+  width: 100%;
+  height: auto;
+  border-radius: 50% 50% 45% 45%; /* Oval shape */
+  transition: transform 0.3s ease; /* Smooth transition */
+}
+
+.speaking .character-sprite {
+  animation: growAndRotateSideToSide 1.5s infinite;
+}
+
+@keyframes growAndRotateSideToSide {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg); /* Normal size, no rotation */
+  }
+  25% {
+    transform: scale(1.1) rotate(10deg); /* Slightly larger, rotate right */
+  }
+  50% {
+    transform: scale(1.1) rotate(-10deg); /* Slightly larger, rotate left */
+  }
+  75% {
+    transform: scale(1.1) rotate(10deg); /* Slightly larger, rotate right */
+  }
+}
