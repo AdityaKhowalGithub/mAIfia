@@ -77,14 +77,40 @@ function Game() {
     }
   };
 
+  // Function to play synthesized speech
+  const playSpeech = async (text) => {
+    try {
+      const response = await axios.post('http://127.0.0.1:5000/voice', { text }, { responseType: 'blob' });
+      const audioUrl = URL.createObjectURL(response.data);
+      const audio = new Audio(audioUrl);
+      audio.play();
+    } catch (error) {
+      console.error('Error playing speech:', error);
+    }
+  };
+
+  // Handle night started event
   useEffect(() => {
     socket.on('night_started', (data) => {
       if (data.game_id === gameId) {
         alert('Night phase has started.');
+        playSpeech('Night phase has started.');
         setStep('night');
       }
     });
     return () => socket.off('night_started');
+  }, [gameId]);
+
+  // Handle day started event
+  useEffect(() => {
+    socket.on('day_started', (data) => {
+      if (data.game_id === gameId) {
+        alert('Day phase has started.');
+        playSpeech('Day phase has started.');
+        setStep('day');
+      }
+    });
+    return () => socket.off('day_started');
   }, [gameId]);
 
   useEffect(() => {
@@ -96,7 +122,10 @@ function Game() {
 
     const handlePlayerEliminated = (data) => {
       if (data.game_id === gameId) {
-        alert(`Player ${data.player_id} has been eliminated.`);
+        const eliminatedPlayer = players.find(player => player.id === data.player_id);
+        const message = `Player ${eliminatedPlayer.name} has been eliminated.`;
+        alert(message);
+        playSpeech(message);
         setPlayers((prevPlayers) => prevPlayers.map((player) => 
           player.id === data.player_id ? { ...player, alive: false } : player
         ));
@@ -105,7 +134,9 @@ function Game() {
 
     const handleGameOver = (data) => {
       if (data.game_id === gameId) {
-        alert(`${data.winner} have won the game!`);
+        const message = `${data.winner} have won the game!`;
+        alert(message);
+        playSpeech(message);
         setStep('game_over');
       }
     };
@@ -119,7 +150,7 @@ function Game() {
       socket.off('player_eliminated', handlePlayerEliminated);
       socket.off('game_over', handleGameOver);
     };
-  }, [gameId]);
+  }, [gameId, players]);
 
   useEffect(() => {
     if (gameId && playerId) {
@@ -150,8 +181,10 @@ function Game() {
         setPlayers(data.players);
         await fetchRole();
         setStep('day');
+        playSpeech('The game has started. It is now daytime.');
       }
     });
+    return () => socket.off('game_started');
   }, [gameId, playerId]);
 
   const fetchRole = async () => {
@@ -197,6 +230,7 @@ function Game() {
       await axios.post('http://127.0.0.1:5000/start_game', { game_id: gameId });
       await fetchRole();
       setStep('day');
+      playSpeech('The game has started. It is now daytime.');
     } catch (error) {
       console.error('Error starting game:', error);
     }
@@ -247,7 +281,7 @@ function Game() {
       )}
       {step !== 'menu' && step !== 'lobby' && (
         <div>
-          { /* day or night */}
+          {/* Day or Night */}
           <h2>{step.charAt(0).toUpperCase() + step.slice(1)}</h2>
           <h3>Your Role: {role}</h3>
           <h3>Time Remaining: {timer} seconds</h3>
@@ -259,9 +293,9 @@ function Game() {
               </li>
             ))}
           </ul>
-          {step === 'day' && role === 'mafia' && (
+          {step === 'night' && role === 'Mafia' && (
             <div>
-              <h3>Select a target:</h3>
+              <h3>Select a target to eliminate:</h3>
               <select onChange={(e) => setTargetId(e.target.value)}>
                 <option value="">Select player</option>
                 {players.filter((player) => player.alive && player.id !== playerId).map((player) => (
@@ -273,7 +307,6 @@ function Game() {
           )}
           {step === 'day' && (
             <Voting players={players} gameId={gameId} playerId={playerId} setTargetId={setTargetId} />
-            /* <Voting players={players} playerId={playerId} setTargetId={setTargetId} /> */
           )}
           <Notes />
         </div>
