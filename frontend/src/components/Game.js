@@ -20,6 +20,36 @@ function Game() {
   const [role, setRole] = useState('');
   const [players, setPlayers] = useState([]);
   const [targetId, setTargetId] = useState(''); // Added state for target player
+  const [timer, setTimer] = useState(0);
+
+  useEffect(() => {
+    if (step === 'game') {
+      // Start day phase timer (e.g., 60 seconds)
+      setTimer(60);
+    } else if (step === 'night') {
+      // Start night phase timer (e.g., 30 seconds)
+      setTimer(30);
+    }
+  }, [step]);
+  
+
+  useEffect(() => {
+    let interval = null;
+    if (timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prevTimer) => prevTimer - 1);
+      }, 1000);
+    } else if (timer === 0) {
+      // Time's up, proceed to the next phase or take appropriate action
+      if (step === 'game') {
+        // For example, auto-submit votes or end the day phase
+      } else if (step === 'night') {
+        // Auto-submit night actions or proceed to day phase
+      }
+    }
+    return () => clearInterval(interval);
+  }, [timer, step]);
+  
 
   useEffect(() => {
     socket.on('night_started', (data) => {
@@ -221,14 +251,16 @@ function Game() {
       )}
       {step === 'game' && (
         <div>
+          <h2>{step === 'game' ? 'Day Phase' : 'Night Phase'}</h2>
+          <p>Time remaining: {timer} seconds</p>
           <p>Your role: <strong>{role}</strong></p>
-          <Voting players={players} onVote={() => {}} />
+          <br />
+          <Voting players={players} gameId={gameId} playerId={playerId} />
           <Notes />
         </div>
       )}
       {step === 'night' && (
         <div>
-          <h2>Night Phase</h2>
           <p>Perform your night actions if applicable.</p>
           {/* Implement night actions for special roles */}
         </div>
