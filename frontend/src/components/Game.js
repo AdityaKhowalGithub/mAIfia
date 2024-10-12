@@ -121,14 +121,6 @@ function Game() {
     };
   }, [gameId]);
 
-  useEffect(() => {
-    if (gameId && playerId) {
-      socket.emit('join_room', { game_id: gameId, player_id: playerId });
-      fetchPlayers();
-      socket.on('player_joined', handlePlayerJoined);
-    }
-  }, [gameId, playerId]);
-
   const fetchPlayers = async () => {
     try {
       const response = await axios.get('http://127.0.0.1:5000/get_players', { params: { game_id: gameId } });
@@ -137,6 +129,15 @@ function Game() {
       console.error('Error fetching players:', error);
     }
   };
+
+  useEffect(() => {
+    if (gameId && playerId) {
+      socket.emit('join_room', { game_id: gameId, player_id: playerId });
+      fetchPlayers();
+      socket.on('player_joined', handlePlayerJoined);
+    }
+  }, [gameId, playerId]);
+
 
   const handlePlayerJoined = (data) => {
     if (data.game_id === gameId) {
