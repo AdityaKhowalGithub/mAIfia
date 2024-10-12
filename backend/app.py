@@ -128,6 +128,15 @@ def start_game():
     return jsonify({'status': 'Game started'}), 200
 
 
+def start_night_phase(game_id):
+    game = games[game_id]
+    game['phase'] = 'night'
+
+    # Emit an event to notify players
+    socketio.emit('night_started', {'game_id': game_id}, room=game_id)
+
+    
+
 @app.route('/get_role', methods=['GET'])
 def get_role():
     game_id = request.args.get('game_id')
@@ -155,6 +164,127 @@ def handle_join_room(data):
     join_room(game_id)
     print(f"Player {player_id} joined game {game_id}")
 
+
+
+@app.route('/submit_vote', methods=['POST'])
+def submit_vote():
+    data = request.get_json()
+    game_id = data.get('game_id')
+    player_id = data.get('player_id')
+    target_id = data.get('target_id')
+
+    if not game_id or not player_id or not target_id:
+        print("bullshit", data)
+        return jsonify({'error': 'Game ID, Player ID, and Target ID are required'}), 400
+
+    game = games.get(game_id)
+    if not game:
+        return jsonify({'error': 'Game not found'}), 404
+
+    if game['status'] != 'in_progress':
+        print("penis")
+        return jsonify({'error': 'Game is not in progress'}), 400
+
+    # Initialize votes dictionary if it doesn't exist
+    if 'votes' not in game:
+        game['votes'] = {}
+
+    # Record the player's vote
+    game['votes'][player_id] = target_id
+
+    # Emit a 'vote_cast' event to update clients
+    socketio.emit('vote_cast', {
+        'game_id': game_id,
+        'voter_id': player_id,
+        'target_id': target_id
+    }, room=game_id)
+
+    # Check if all alive players have voted
+    alive_players = [p_id for p_id, p in game['players'].items() if p['alive']]
+    if len(game['votes']) == len(alive_players):
+        # Tally votes and proceed to elimination
+        eliminate_player(game_id)
+
+    return jsonify({'status': 'Vote submitted'}), 200
+
+def eliminate_player(game_id):
+    game = games[game_id]
+    votes = game.get('votes', {})
+    vote_counts = {}
+
+    # Count the votes for each target
+    for target_id in votes.values():
+        if target_id in vote_counts:
+            vote_counts[target_id] += 1
+        else:
+            vote_counts[target_id] = 1
+
+    if not vote_counts:
+        return  # No votes cast
+
+    # Find the player(s) with the highest votes
+    max_votes = max(vote_counts.values())
+    top_players = [player_id for player_id, count in vote_counts.items() if count == max_votes]
+
+    # In case of a tie, randomly choose one
+    eliminated_player_id = random.choice(top_players)
+    game['players'][eliminated_player_id]['alive'] = False
+
+    # Emit an event to notify all players
+    socketio.emit('player_eliminated', {
+        'game_id': game_id,
+        'player_id': eliminated_player_id
+    }, room=game_id)
+
+    # Clear the votes for the next round
+    game['votes'] = {}
+
+    # Check for win conditions
+    check_win_conditions(game_id)
+
+    if game['status'] != 'ended':
+        start_night_phase(game_id)
+
+@socketio.on('mafia_action')
+def handle_mafia_action(data):
+    game_id = data.get('game_id')
+    player_id = data.get('player_id')
+    target_id = data.get('target_id')
+
+    # Validate and process action
+    # Store the action in the game state
+def start_day_phase(game_id):
+    game = games[game_id]
+    game['phase'] = 'day'
+
+    # Process night actions
+    process_night_actions(game_id)
+
+    # Emit an event to notify players
+    socketio.emit('day_started', {'game_id': game_id}, room=game_id)
+
+
+def check_win_conditions(game_id):
+    game = games[game_id]
+    players = game['players'].values()
+    mafia_alive = any(p['role'] == 'Mafia' and p['alive'] for p in players)
+    civilians_alive = any(p['role'] != 'Mafia' and p['alive'] for p in players)
+
+    if not mafia_alive:
+        game['status'] = 'ended'
+        socketio.emit('game_over', {
+            'game_id': game_id,
+            'winner': 'Civilians'
+        }, room=game_id)
+    elif not civilians_alive:
+        game['status'] = 'ended'
+        socketio.emit('game_over', {
+            'game_id': game_id,
+            'winner': 'Mafia'
+        }, room=game_id)
+    else:
+        # Proceed to the next phase (e.g., night)
+        socketio.emit('start_night', {'game_id': game_id}, room=game_id)
 
 
 if __name__ == '__main__':
