@@ -1,6 +1,6 @@
 .character-container {
   display: inline-block;
-  width: 150px;
+  width: 250px;
   height: 200px;
   position: relative;
 }
@@ -22,12 +22,12 @@
     transform: scale(1) rotate(0deg); /* Normal size, no rotation */
   }
   25% {
-    transform: scale(1.1) rotate(10deg); /* Slightly larger, rotate right */
+    transform: scale(1.1) rotate(5deg); /* Slightly larger, rotate right */
   }
   50% {
-    transform: scale(1.1) rotate(-10deg); /* Slightly larger, rotate left */
+    transform: scale(1.1) rotate(-5deg); /* Slightly larger, rotate left */
   }
   75% {
-    transform: scale(1.1) rotate(10deg); /* Slightly larger, rotate right */
+    transform: scale(1.1) rotate(5deg); /* Slightly larger, rotate right */
   }
 }
