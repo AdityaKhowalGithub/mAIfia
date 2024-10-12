@@ -1,70 +1,151 @@
-# Getting Started with Create React App
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
-## Available Scripts
+# 🎭 Mafia Game with AI & Voice Interactions 🎙️💬
 
-In the project directory, you can run:
+Welcome to the **Mafia Game**! This project is a multiplayer **turn-based voice game** where human and AI players interact in real-time, powered by **AWS Bedrock, Polly, Transcribe, and Terraform**. 🕵️‍♂️🤖
 
-### `npm start`
+Get ready to bluff, deduce, and have fun in this immersive **AI-driven game** where players take roles like **Mafia, Detective, and Mayor**, with conversations handled through **voice chat**! 🗣️✨
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+---
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## 🛠️ Features
 
-### `npm test`
+- **AI-Powered Roles** 🤖:
+  - **Mafia Members**: Bluff and deceive your way to victory 🕶️
+  - **Detective**: Gather clues and influence the game subtly 🔍
+  - **Doctor**: Save lives during night phases 🏥
+  - **Mayor**: Lead the discussion and break ties 🗳️
+  - **Civilians**: Work together to find the Mafia and vote them out 👥
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- **Turn-Based Voice Conversations** 🎙️:
+  - Players take turns speaking, with **AI players responding in character** 🎭
+  - Voice input converted to text using **AWS Transcribe** 📄
+  - AI-generated responses with **Bedrock models** 🛠️
 
-### `npm run build`
+- **Scalable Infrastructure** 🚀:
+  - **Containerized backend** using Docker 🐳
+  - **Deployed on AWS ECS with Terraform** for fast, automated scaling 🌐
+  - APIs for handling **speech-to-text and text-to-speech** interactions 🗣️🔄
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+---
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## 🚀 Quick Start
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+1. **Clone the Repository** 📂:
+   ```bash
+   git clone https://github.com/yourusername/mafia-game.git
+   cd mafia-game
+   ```
 
-### `npm run eject`
+2. **Set Up AWS Services** 🔧:
+   - Ensure you have **AWS CLI** installed and configured 🌐
+   - Create an **IAM role** for ECS task execution with necessary permissions 🛡️
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+3. **Build and Run Docker Locally** 🐳:
+   ```bash
+   docker build -t mafia-game .
+   docker run -p 5000:5000 mafia-game
+   ```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+4. **Deploy with Terraform** 🚀:
+   ```bash
+   terraform init
+   terraform plan
+   terraform apply
+   ```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+---
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## 🎮 Game Flow
 
-## Learn More
+1. **Role Assignment** 📝:
+   - Players are assigned roles secretly. 🤐
+   - AI and human players don’t know each other’s identities. 👀
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+2. **Day Phase** ☀️:
+   - Players discuss who they think the Mafia members are. 💬
+   - Each player takes turns speaking, with AI players **blending in naturally**. 🤖
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+3. **Voting and Elimination** 🗳️:
+   - Players vote to eliminate one player suspected of being Mafia. 🧑‍⚖️
 
-### Code Splitting
+4. **Night Phase** 🌙:
+   - Mafia tries to eliminate a player. 😈
+   - Doctor can save one player. 👨‍⚕️
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+5. **Win Conditions** 🎉:
+   - **Mafia wins** if they outnumber the civilians. 🥳
+   - **Civilians win** if they eliminate all Mafia members! 👏
 
-### Analyzing the Bundle Size
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## 📦 Project Structure
 
-### Making a Progressive Web App
+```bash
+mafia-game/
+├── app/
+│   ├── server.py        # Backend logic for roles, voice input, and AI responses
+│   ├── Dockerfile       # Docker configuration for containerization
+│   └── requirements.txt # Dependencies for Python backend
+├── terraform/
+│   ├── main.tf          # Terraform config for AWS infrastructure
+│   └── variables.tf     # Variables for AWS deployment
+└── ui/
+    └── index.html       # Minimal UI for voting and notes
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+---
 
-### Advanced Configuration
+## 🤖 AI and Voice Services
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+- **AWS Bedrock** 🛠️: Generates AI responses based on player roles and interactions.
+- **AWS Polly** 🎙️: Converts text to speech with **natural-sounding voices**.
+- **AWS Transcribe** 📄: Converts player speech to text for AI processing.
 
-### Deployment
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## 🛠️ Development Tips
 
-### `npm run build` fails to minify
+1. **Use Postman** for API testing. 📬  
+2. Monitor logs with **AWS CloudWatch**. 📊  
+3. Secure endpoints with **IAM roles and tokens**. 🔒  
+4. Enable auto-scaling for game sessions with ECS. 🚀  
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+---
+
+## 🐛 Troubleshooting
+
+- **Docker Issues** 🐳:  
+  Run `docker system prune` to clean up unused containers and images.
+
+- **Terraform Errors** 🛠️:  
+  Make sure your AWS CLI is correctly configured with proper permissions.
+
+- **Voice Services Not Responding** 🎙️:  
+  Check API keys and **IAM roles** for AWS Polly and Transcribe services.
+
+---
+
+## 📜 License
+
+This project is licensed under the **MIT License**. 📄
+
+---
+
+## 💬 Feedback and Contributions
+
+Feel free to **fork** this repository and submit **pull requests**! 🛠️  
+If you have any questions or feedback, open an **issue** or reach out via email. 📧
+
+---
+
+## ✨ Acknowledgements
+
+Special thanks to **AWS** and the open-source community for the tools and resources that made this project possible. 🌐💙
+
+---
+
+Enjoy playing Mafia! 🎉🕵️‍♂️ Bluff, deceive, and deduce your way to victory! 🏆
+
+---
+
