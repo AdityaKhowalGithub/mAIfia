@@ -33,7 +33,7 @@ function App() {
   const characters = roles.map((role, index) => {
     const isRealPlayer = Math.random() < 0.5; // 50% chance of being a real player
     return {
-      sprite: `/sprites/character${index + 1}.png`, // Assuming you have sprites named character1.png to character8.png
+      sprite: `/character${index + 1}.png`, // Assuming you have sprites named character1.png to character8.png
       voice: `voice${index + 1}.mp3`, // Assuming you have corresponding voice files
       role: role, // Assign the randomly generated role
       isRealPlayer: isRealPlayer, // Assign the real player status

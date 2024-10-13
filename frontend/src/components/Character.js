@@ -37,7 +37,6 @@ const Character = ({ sprite, voice, speaking, isDead, role, isRealPlayer }) => {
       onClick={handleClick}
     >
       <img src={sprite} alt="Character Sprite" className="character-sprite" />
-      <div className="character-role">{role}</div> {/* Display the role */}
     </div>
   );
 };
