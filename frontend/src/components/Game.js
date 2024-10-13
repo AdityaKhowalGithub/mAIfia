@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import axios from 'axios';
 import Voting from './Voting';
@@ -20,8 +20,45 @@ function Game() {
   const [timer, setTimer] = useState(0);
   const [includeAI, setIncludeAI] = useState(false);
   const [playerSpeech, setPlayerSpeech] = useState('');
-  
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef(null);
 
+  const startRecording = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorderRef.current = new MediaRecorder(stream);
+
+    mediaRecorderRef.current.ondataavailable = async (event) => {
+      const audioBlob = event.data;
+      const formData = new FormData();
+      formData.append('file', audioBlob, 'speech.wav');
+
+      try {
+        await axios.post('http://127.0.0.1:5000/upload_voice', formData);
+      } catch (error) {
+        console.error('Error uploading voice:', error);
+      }
+    };
+
+    mediaRecorderRef.current.start();
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current.stop();
+    setIsRecording(false);
+  };
+
+
+  useEffect(() => {
+    socket.on('current_speaker', (data) => {
+      if (data.player_id === playerId) {
+        alert("It's your turn to speak!");
+      }
+    });
+  
+    return () => socket.off('current_speaker');
+  }, [playerId]);
+  
 
   useEffect(() => {
     socket.on('timer_update', (data) => {
@@ -48,8 +85,8 @@ function Game() {
       }
     });
 
-    socket.on('play_speech', (data)=>{
-      if (data.game_id === gameId){
+    socket.on('play_speech', (data) => {
+      if (data.game_id === gameId) {
         playSpeech(data.text, data.voice_id);
       }
     });
@@ -62,7 +99,7 @@ function Game() {
 
   const playSpeech = async (text, voice) => {
     try {
-      
+
       const response = await axios.post('http://127.0.0.1:5000/voice', { text, voice }, { responseType: 'blob' });
       console.log(response.data);
       const audioUrl = URL.createObjectURL(response.data);
@@ -134,9 +171,9 @@ function Game() {
         // You can update state to display this in the UI
       }
     };
-  
+
     socket.on('player_speech', handlePlayerSpeech);
-  
+
     return () => {
       socket.off('player_speech', handlePlayerSpeech);
     };
@@ -147,7 +184,7 @@ function Game() {
       if (data.game_id === gameId) {
         setPlayers(data.players);
         console.log(data.players);
-        
+
         await fetchRole();
 
         setStep('day');
@@ -187,7 +224,7 @@ function Game() {
   const joinGame = async () => {
     try {
       const response = await axios.post('http://127.0.0.1:5000/join_game', { game_id: gameId, name: playerName });
-      console.log("the response player id is" , response.data.player_id); 
+      console.log("the response player id is", response.data.player_id);
       setPlayerId(response.data.player_id);
       setStep('lobby');
     } catch (error) {
@@ -273,24 +310,29 @@ function Game() {
           <h3>Your Role: {role}</h3>
           <h3>Time Remaining: {timer} seconds</h3>
           {step === 'day' && (
-  <>
-    <Voting
-      players={players}
-      gameId={gameId}
-      playerId={playerId}
-    />
-    <div>
-      <h3>Submit Your Speech</h3>
-      <textarea
-        value={playerSpeech}
-        onChange={(e) => setPlayerSpeech(e.target.value)}
-        rows={4}
-        cols={50}
-      />
-      <button onClick={submitPlayerSpeech}>Submit Speech</button>
-    </div>
-  </>
-)}
+            <>
+              <Voting
+                players={players}
+                gameId={gameId}
+                playerId={playerId}
+              />
+              <div>
+                {isRecording ? (
+                  <button onClick={stopRecording}>Stop Recording</button>
+                ) : (
+                  <button onClick={startRecording}>Start Recording</button>
+                )}
+                <h3>Submit Your Speech</h3>
+                <textarea
+                  value={playerSpeech}
+                  onChange={(e) => setPlayerSpeech(e.target.value)}
+                  rows={4}
+                  cols={50}
+                />
+                <button onClick={submitPlayerSpeech}>Submit Speech</button>
+              </div>
+            </>
+          )}
           {step === 'night' && role === 'mafia' && (
             <div>
               <h3>Select a player to eliminate</h3>
