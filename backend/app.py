@@ -33,26 +33,35 @@ games = {}
 
 speech_queue = Queue()
 speech_lock = Lock()
-def transcribe_audio(player_id):
-    """Use AWS Transcribe to process the audio."""
+def handle_user_voice(player_id):
+    # play on the frontend
+    socketio.emit("play_audio", {"player_id: player_id"})
+    
     response = transcribe_client.start_transcription_job(
         TranscriptionJobName="GameTranscription",
         Media={'MediaFileUri': f"s3://{S3_BUCKET}/{player_id}.mp3"},
-        MediaFormat='mp3',  # Change this based on your audio file format
+        MediaFormat='mp3',
         LanguageCode='en-US'
     )
+    
+    transcript_uri = response['TranscriptionJob']['Transcript']['TranscriptFileUri']
+    transcript_response = requests.get(transcript_uri)
+    transcript_data = transcript_response.json()
+    
+    print("Transcription result:", transcript_data['results']['transcripts'][0]['transcript'])
     return response
 
 def process_speech_queue():
     """Process speeches sequentially from the queue."""
     while True:
-        game_id, audio_stream, player_id = speech_queue.get()
-        if audio_stream:
-            text = transcribe_audio(player_id)
-            if text:
-                # Store the transcription in game context
-                games[game_id]['speeches'][player_id] = text
-                socketio.emit('player_speech', {'game_id': game_id, 'player_id': player_id, 'text': text}, room=game_id)
+        game_id, text, voice_id = speech_queue.get()  # Now unpack voice_id
+        if text:
+            # Emit play speech event to the client, including voice_id
+            socketio.emit('play_speech', {'game_id': game_id, 'voice_id': voice_id, 'text': text}, room=game_id)
+
+            # Ensure the next speech starts only after the current one finishes
+            time.sleep(5)
+
         speech_queue.task_done()
 
 # Start the speech processing thread
@@ -158,7 +167,8 @@ def generate_ai_speech(game_id):
     # Construct context with player speeches and roles
     context = create_context(ai_player['role'], 'cunning')
     for player in game['players'].values():
-        context += f"{player['name']}: {game['speeches'].get(player['id'], '')}\n"
+        for speech in game['speeches'][player]:
+            context += f"{player['name']}: {speech}\n"
     context += "If the messages are empty, no one has spoken. Give a half sentence intro message."
     
     try:
@@ -493,7 +503,12 @@ def upload_voice():
     s3_client.upload_fileobj(file, S3_BUCKET, audio_stream)
     
     # Process the audio file using AWS Transcribe
-    queue_speech(game_id, player_id)
+    text = handle_user_voice(player_id)
+
+    #add to speeches
+    game = games.get(game_id)
+    game['speeches'][player_id].append(text)
+    print(f"Player {player_id} speech: {text}")
 
     return jsonify({'status': 'Audio uploaded'}), 200
     
