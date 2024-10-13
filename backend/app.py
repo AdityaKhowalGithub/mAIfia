@@ -1,12 +1,17 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
-from flask_socketio import SocketIO, emit, join_room
-import uuid
-import random
+from flask_socketio import SocketIO, emit, join_room, leave_room
+import uuid, random, io, boto3
 
 app = Flask(__name__)
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+
+# Initialize AWS Polly client
+polly_client = boto3.client('polly', region_name='us-east-1')  # Replace with your AWS region
+
+# Initialize AWS Bedrock client
+bedrock_client = boto3.client('bedrock', region_name='us-east-1')  # Replace with your AWS region
 
 # In-memory storage for players and games (for development purposes)
 players = {}
@@ -100,6 +105,7 @@ def join_game():
 def create_game():
     data = request.get_json()
     host_name = data.get('name')
+    include_ai = data.get('include_ai', False)
     if not host_name:
         return jsonify({'error': 'Name is required'}), 400
 
@@ -109,8 +115,13 @@ def create_game():
     games[game_id] = {
         'game_id': game_id,
         'players': {player_id: {'id': player_id, 'name': host_name, 'role': None, 'alive': True}},
-        'status': 'waiting'
+        'status': 'waiting',
+        'include_ai': include_ai
     }
+
+    if include_ai:
+        ai_player_id = str(uuid.uuid4())
+        games[game_id]['players'][ai_player_id] = {'id': ai_player_id, 'name': 'AI player', 'role': None, 'alive': True}
 
     return jsonify({'game_id': game_id, 'player_id': player_id}), 200
 
@@ -180,5 +191,55 @@ def handle_join_room(data):
     join_room(game_id)
     print(f"Player {player_id} joined game {game_id}")
 
+# Voice synthesis route using AWS Polly
+@app.route('/voice', methods=['POST'])
+def voice():
+    data = request.get_json()
+    text = data.get('text')
+    voice_id = data.get('voice_id', 'Joanna')  # Default voice
+
+    if not text:
+        return jsonify({'error': 'Text is required'}), 400
+
+    try:
+        # Call Amazon Polly to synthesize speech
+        response = polly_client.synthesize_speech(
+            Text=text,
+            OutputFormat='mp3',
+            VoiceId=voice_id
+        )
+    except Exception as e:
+        print('Error synthesizing speech:', e)
+        return jsonify({'error': str(e)}), 500
+
+    # Check if the response contains 'AudioStream'
+    if 'AudioStream' in response:
+        audio_stream = response['AudioStream'].read()
+        if audio_stream:
+            return send_file(
+                io.BytesIO(audio_stream),
+                mimetype='audio/mpeg',
+                as_attachment=False,
+                download_name='speech.mp3'
+            )
+        else:
+            return jsonify({'error': 'AudioStream is empty'}), 500
+    else:
+        return jsonify({'error': 'Could not retrieve AudioStream from response'}), 500
+
+# Endpoint to receive voice recordings from players
+@app.route('/upload_voice', methods=['POST'])
+def upload_voice():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    # Save or process the file as needed
+    # For simplicity, we'll just acknowledge receipt
+    return jsonify({'status': 'Voice received'}), 200
+
 if __name__ == '__main__':
-    socketio.run(app, host='127.0.0.1', port=5000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
