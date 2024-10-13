@@ -1,37 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import io from 'socket.io-client';
-import axios from 'axios';
-import Voting from './Voting';
-import Notes from './Notes';
+import React, { useState, useEffect } from "react";
+import io from "socket.io-client";
+import axios from "axios";
+import Voting from "./Voting";
+import Notes from "./Notes";
 
 // Initialize the socket connection
 // const socket = io('http://127.0.0.1:5000');
-const socket = io('http://127.0.0.1:5000', {
-     withCredentials: true,
-     extraHeaders: {
-       "my-custom-header": "abcd"
-     }
-   });
+const socket = io("http://127.0.0.1:5000", {
+  withCredentials: true,
+  extraHeaders: {
+    "my-custom-header": "abcd",
+  },
+});
 function Game() {
-  const [step, setStep] = useState('menu'); // 'menu', 'lobby', 'game', 'night', etc.
-  const [gameId, setGameId] = useState('');
-  const [playerId, setPlayerId] = useState('');
-  const [playerName, setPlayerName] = useState('');
-  const [role, setRole] = useState('');
+  const [step, setStep] = useState("menu"); // 'menu', 'lobby', 'game', 'night', etc.
+  const [gameId, setGameId] = useState("");
+  const [playerId, setPlayerId] = useState("");
+  const [playerName, setPlayerName] = useState("");
+  const [role, setRole] = useState("");
   const [players, setPlayers] = useState([]);
-  const [targetId, setTargetId] = useState(''); // Added state for target player
+  const [targetId, setTargetId] = useState(""); // Added state for target player
   const [timer, setTimer] = useState(0);
 
   useEffect(() => {
-    if (step === 'game') {
+    if (step === "game") {
       // Start day phase timer (e.g., 60 seconds)
       setTimer(60);
-    } else if (step === 'night') {
+    } else if (step === "night") {
       // Start night phase timer (e.g., 30 seconds)
       setTimer(30);
     }
   }, [step]);
-  
 
   useEffect(() => {
     let interval = null;
@@ -41,33 +40,31 @@ function Game() {
       }, 1000);
     } else if (timer === 0) {
       // Time's up, proceed to the next phase or take appropriate action
-      if (step === 'game') {
+      if (step === "game") {
         // For example, auto-submit votes or end the day phase
-      } else if (step === 'night') {
+      } else if (step === "night") {
         // Auto-submit night actions or proceed to day phase
       }
     }
     return () => clearInterval(interval);
   }, [timer, step]);
-  
 
   useEffect(() => {
-    socket.on('night_started', (data) => {
+    socket.on("night_started", (data) => {
       if (data.game_id === gameId) {
-        alert('Night phase has started.');
-        setStep('night');
+        alert("Night phase has started.");
+        setStep("night");
       }
     });
 
     return () => {
-      socket.off('night_started');
+      socket.off("night_started");
     };
   }, [gameId]);
 
-
   useEffect(() => {
     // Listen for vote_cast events
-    socket.on('vote_cast', (data) => {
+    socket.on("vote_cast", (data) => {
       if (data.game_id === gameId) {
         // Optionally update UI to reflect voting progress
         console.log(`Player ${data.voter_id} voted for ${data.target_id}`);
@@ -75,7 +72,7 @@ function Game() {
     });
 
     // Listen for player_eliminated events
-    socket.on('player_eliminated', (data) => {
+    socket.on("player_eliminated", (data) => {
       if (data.game_id === gameId) {
         alert(`Player ${data.player_id} has been eliminated.`);
         // Update the players state to mark the player as eliminated
@@ -88,61 +85,65 @@ function Game() {
     });
 
     // Listen for game_over events
-    socket.on('game_over', (data) => {
+    socket.on("game_over", (data) => {
       if (data.game_id === gameId) {
         alert(`${data.winner} have won the game!`);
-        setStep('game_over');
+        setStep("game_over");
       }
     });
 
     // Clean up event listeners on unmount
     return () => {
-      socket.off('vote_cast');
-      socket.off('player_eliminated');
-      socket.off('game_over');
+      socket.off("vote_cast");
+      socket.off("player_eliminated");
+      socket.off("game_over");
     };
   }, [gameId]);
-
 
   useEffect(() => {
     if (gameId && playerId) {
       // Emit join_room event when the player joins the game
-      socket.emit('join_room', { game_id: gameId, player_id: playerId });
+      socket.emit("join_room", { game_id: gameId, player_id: playerId });
 
       // Fetch the list of players in the game
-      axios.get('http://127.0.0.1:5000/get_players', { params: { game_id: gameId } })
-        .then(response => {
+      axios
+        .get("http://127.0.0.1:5000/get_players", {
+          params: { game_id: gameId },
+        })
+        .then((response) => {
           setPlayers(response.data.players);
         })
-        .catch(error => {
-          console.error('Error fetching players:', error);
+        .catch((error) => {
+          console.error("Error fetching players:", error);
         });
 
       // Listen for the player_joined event
-      socket.on('player_joined', (data) => {
+      socket.on("player_joined", (data) => {
         // alert the update on browser
         if (data.game_id === gameId) {
           setPlayers(data.players);
         }
       });
-
     }
   }, [gameId, playerId]);
 
   useEffect(() => {
     // Listen for the game_started event
-    socket.on('game_started', (data) => {
+    socket.on("game_started", (data) => {
       if (data.game_id === gameId) {
         setPlayers(data.players);
 
         // Fetch the player's role
-        axios.get('http://127.0.0.1:5000/get_role', { params: { game_id: gameId, player_id: playerId } })
-          .then(response => {
-            setRole(response.data.role);
-            setStep('game');  // Move to the game view
+        axios
+          .get("http://127.0.0.1:5000/get_role", {
+            params: { game_id: gameId, player_id: playerId },
           })
-          .catch(error => {
-            console.error('Error fetching role:', error);
+          .then((response) => {
+            setRole(response.data.role);
+            setStep("game"); // Move to the game view
+          })
+          .catch((error) => {
+            console.error("Error fetching role:", error);
           });
       }
     });
@@ -151,7 +152,7 @@ function Game() {
   const submitMafiaAction = async () => {
     try {
       // Emit the 'mafia_action' event to the server
-      socket.emit('mafia_action', {
+      socket.emit("mafia_action", {
         game_id: gameId,
         player_id: playerId,
         target_id: targetId,
@@ -159,52 +160,57 @@ function Game() {
       // Optionally, you can set the step to wait for the next phase
       // setStep('waiting_for_day');
     } catch (error) {
-      console.error('Error submitting Mafia action:', error);
+      console.error("Error submitting Mafia action:", error);
     }
   };
-
-
 
   // Function to create a new game
   const createGame = async () => {
     try {
-      const response = await axios.post('http://127.0.0.1:5000/create_game', { name: playerName });
+      const response = await axios.post("http://127.0.0.1:5000/create_game", {
+        name: playerName,
+      });
       setGameId(response.data.game_id);
       setPlayerId(response.data.player_id);
-      setStep('lobby');
+      setStep("lobby");
     } catch (error) {
-      console.error('Error creating game:', error);
+      console.error("Error creating game:", error);
     }
   };
 
   // Function to join an existing game
   const joinGame = async () => {
     try {
-      const response = await axios.post('http://127.0.0.1:5000/join_game', { game_id: gameId, name: playerName });
+      const response = await axios.post("http://127.0.0.1:5000/join_game", {
+        game_id: gameId,
+        name: playerName,
+      });
       setPlayerId(response.data.player_id);
-      setStep('lobby');
+      setStep("lobby");
     } catch (error) {
-      console.error('Error joining game:', error);
+      console.error("Error joining game:", error);
     }
-  }
+  };
 
   // Function to start the game
   const startGame = async () => {
     try {
-      await axios.post('http://127.0.0.1:5000/start_game', { game_id: gameId });
+      await axios.post("http://127.0.0.1:5000/start_game", { game_id: gameId });
       // Fetch the player's role
-      const response = await axios.get('http://127.0.0.1:5000/get_role', { params: { game_id: gameId, player_id: playerId } });
+      const response = await axios.get("http://127.0.0.1:5000/get_role", {
+        params: { game_id: gameId, player_id: playerId },
+      });
       setRole(response.data.role);
-      setStep('game');
+      setStep("game");
     } catch (error) {
-      console.error('Error starting game:', error);
+      console.error("Error starting game:", error);
     }
   };
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div style={{ padding: "20px" }}>
       <h1>Mafia Game</h1>
-      {step === 'menu' && (
+      {step === "menu" && (
         <div>
           <input
             type="text"
@@ -212,7 +218,9 @@ function Game() {
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
           />
-          <button onClick={createGame} disabled={!playerName}>Create Game</button>
+          <button onClick={createGame} disabled={!playerName}>
+            Create Game
+          </button>
           <hr />
           <input
             type="text"
@@ -226,49 +234,58 @@ function Game() {
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
           />
-          <button onClick={joinGame} disabled={!gameId || !playerName}>Join Game</button>
+          <button onClick={joinGame} disabled={!gameId || !playerName}>
+            Join Game
+          </button>
         </div>
       )}
-      {step === 'lobby' && (
+      {step === "lobby" && (
         <div>
           <h2>Game Lobby</h2>
           <p>Game ID: {gameId}</p>
           <p>Waiting for players to join...</p>
 
           {/* Display the list of players in the lobby without bullets and indents */}
-          <ul style={{ listStyleType: 'none', margin: 0, padding: 0 }}>
+          <ul style={{ listStyleType: "none", margin: 0, padding: 0 }}>
             {players.map((player) => (
               // If it is the host (first in the list), append (host) to the name
-              <li key={player.id}>{player.name} {player.id === players[0].id && '(host)'}</li>
+              <li key={player.id}>
+                {player.name} {player.id === players[0].id && "(host)"}
+              </li>
             ))}
           </ul>
 
-          { /* Join Game button only works for first user in player array */}
+          {/* Join Game button only works for first user in player array */}
           {players.length > 0 && players[0].id === playerId && (
             <button onClick={startGame}>Start Game</button>
           )}
         </div>
       )}
-      {step === 'game' && (
+      {step === "game" && (
         <div>
-          <h2>{step === 'game' ? 'Day Phase' : 'Night Phase'}</h2>
+          <h2>{step === "game" ? "Day Phase" : "Night Phase"}</h2>
           <p>Time remaining: {timer} seconds</p>
-          <p>Your role: <strong>{role}</strong></p>
+          <p>
+            Your role: <strong>{role}</strong>
+          </p>
           <br />
           <Voting players={players} gameId={gameId} playerId={playerId} />
           <Notes />
         </div>
       )}
-      {step === 'night' && (
+      {step === "night" && (
         <div>
           <p>Perform your night actions if applicable.</p>
           {/* Implement night actions for special roles */}
         </div>
       )}
-      {step === 'night' && role === 'Mafia' && (
+      {step === "night" && role === "Mafia" && (
         <div>
           <h2>Mafia Action</h2>
-          <select onChange={(e) => setTargetId(e.target.value)} value={targetId}>
+          <select
+            onChange={(e) => setTargetId(e.target.value)}
+            value={targetId}
+          >
             <option value="">Select a player to eliminate</option>
             {players
               .filter((p) => p.alive && p.id !== playerId)
@@ -281,11 +298,8 @@ function Game() {
           <button onClick={submitMafiaAction} disabled={!targetId}>
             Submit
           </button>
-
         </div>
       )}
-
-
     </div>
   );
 }
