@@ -1,0 +1,157 @@
+.game-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Center items vertically */
+  align-items: center; /* Center items horizontally */
+  
+  margin: auto;
+  height: 100vh; /* Adjust height to fill the screen */
+}
+
+.middle {
+  display: flex;
+  flex-direction: row;
+  justify-content: center; /* Center items in the row */
+  align-items: center; /* Center items vertically in the middle section */
+  padding: 15px;
+  flex-grow: 1; /* Make the middle section take up available space */
+}
+
+.middle > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Center items vertically in this div */
+  align-items: center; /* Center items horizontally in this div */
+}
+
+.character-bar {
+  padding: 20px;
+  display: flex;
+  justify-content: center; /* Center items in the character bar */
+}
+/* General container */
+
+/* Title styling */
+.title {
+  text-align: center;
+  color: #d6d0c1;
+  font-size: 60px;
+  font-family: 'Courier New', monospace;
+}
+
+/* Menu styling */
+.menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.menu-section {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.input-field {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: #d6d0c1;
+}
+
+.button {
+  padding: 10px 20px;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.create-button {
+  background-color: #3498db;
+  margin-bottom: 20px;
+}
+
+.join-button {
+  background-color: #2ecc71;
+}
+
+.divider {
+  width: 100%;
+  margin: 20px 0;
+  border: none;
+  border-top: 1px solid #ccc;
+}
+
+/* Lobby styling */
+.lobby {
+  text-align: center;
+}
+
+.lobby-title {
+  color: #2980b9;
+}
+
+.player-list {
+  list-style-type: none;
+  margin: 20px 0;
+  padding: 0;
+}
+
+.player-item {
+  margin-bottom: 10px;
+}
+
+.host-tag {
+  color: #e74c3c;
+}
+
+.start-button {
+  background-color: #e67e22;
+}
+
+/* Gameplay styling */
+.gameplay {
+  text-align: center;
+}
+
+.phase-title {
+  margin-top: 20px;
+}
+
+.speech-container,
+.night-actions {
+  margin-top: 20px;
+}
+
+.textarea {
+  width: 100%;
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  margin-bottom: 10px;
+}
+
+.submit-button {
+  background-color: #3498db;
+}
+
+.player-button {
+  display: block;
+  padding: 10px 20px;
+  margin: 10px auto;
+  background-color: #e74c3c;
+}
+
+.night-actions .submit-button {
+  background-color: #c0392b;
+  margin-top: 10px;
+}

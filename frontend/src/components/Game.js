@@ -5,8 +5,12 @@ import Voting from './Voting';
 import Notes from './Notes';
 import TitlePage from "./TitlePage";
 import Recorder from "./Recorder";
+import EventDisplay from "./EventDisplay";
+import Timer from "./Timer";
+import CharacterBar from "./CharacterBar";
+import PhaseTracker from "./PhaseTracker";
 import "../App.css";
-
+import "../Game.css";
 const socket = io('http://127.0.0.1:5000', {
   withCredentials: true,
   extraHeaders: { "my-custom-header": "abcd" }
@@ -24,6 +28,26 @@ function Game() {
   const [includeAI, setIncludeAI] = useState(false);
   const [playerSpeech, setPlayerSpeech] = useState('');
   const audioRef = useRef(null);
+
+  // New state variables
+  const [currentPhase, setCurrentPhase] = useState('menu');
+  const [dayNumber, setDayNumber] = useState(1);
+
+
+  // Update currentPhase whenever step changes
+  useEffect(() => {
+    if (step === 'menu') {
+      setCurrentPhase('menu');
+    } else if (step === 'lobby') {
+      setCurrentPhase('lobby');
+    } else if (step === 'day') {
+      setCurrentPhase('DayPhase');
+    } else if (step === 'night') {
+      setCurrentPhase('NightPhase');
+    } else if (step === 'game_over') {
+      setCurrentPhase('GameOver');
+    }
+  }, [step]);
 
   useEffect(() => {
     socket.on('timer_update', (data) => {
@@ -232,195 +256,201 @@ function Game() {
   };
 
   return (
-<div style={{ padding: '40px', fontFamily: 'Arial, sans-serif', maxWidth: '600px', margin: '0 auto', color: '#333' }}>
-  <h1 style={{ textAlign: 'center', color: '#d6d0c1', 'font-size': '60px', fontFamily: 'Courier New, monospace' }}>MaAIfia</h1>
-
-  {step === 'menu' && (
-    <>
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{ marginBottom: '20px', width: '100%' }}>
-        <input
-          style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '5px', border: '1px solid #ccc' }}
-          type="text"
-          placeholder="Enter your name"
-          value={playerName}
-          onChange={(e) => setPlayerName(e.target.value)}
-        />
-        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={includeAI}
-            onChange={(e) => setIncludeAI(e.target.checked)}
-          />
-
-          <div style={{ color: '#d6d0c1' }}>Include AI Player</div>
-        </label>
-      </div>
-      <button
-        onClick={createGame}
-        disabled={!playerName}
-        style={{
-          padding: '10px 20px',
-          backgroundColor: '#3498db',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer',
-          marginBottom: '20px',
-        }}>
-        Create Game
-      </button>
-
-      <hr style={{ width: '100%', margin: '20px 0' }} />
-
-      <div style={{ width: '100%' }}>
-        <input
-          style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '5px', border: '1px solid #ccc' }}
-          type="text"
-          placeholder="Enter Game ID"
-          value={gameId}
-          onChange={(e) => setGameId(e.target.value)}
-        />
-        <input
-          style={{ width: '100%', padding: '10px', marginBottom: '20px', borderRadius: '5px', border: '1px solid #ccc' }}
-          type="text"
-          placeholder="Enter your name"
-          value={playerName}
-          onChange={(e) => setPlayerName(e.target.value)}
-        />
-        <button
-          onClick={joinGame}
-          disabled={!gameId || !playerName}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#2ecc71',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer',
-          }}>
-          Join Game
-        </button>
-      </div>
-      <TitlePage />
-    </div>
-    </>
-  )}
-
-  {step === 'lobby' && (
-    <>
-    <div style={{ textAlign: 'center' }}>
-      <h2 style={{ color: '#2980b9' }}>Game Lobby</h2>
-      <p>Game ID: <strong>{gameId}</strong></p>
-      <p>Waiting for players to join...</p>
-      <ul style={{ listStyleType: 'none', margin: '20px 0', padding: 0 }}>
-        {players.map((player) => (
-          <li key={player.id} style={{ marginBottom: '10px' }}>
-            {player.name} {player.id === players[0].id && <span style={{ color: '#e74c3c' }}>(host)</span>}
-          </li>
-        ))}
-      </ul>
-      {players.length > 0 && players[0].id === playerId && (
-        <button
-          onClick={startGame}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#e67e22',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer',
-          }}>
-          Start Game
-        </button>
-      )}
-    </div>
-
-    </>
-  )}
-
-  {step !== 'menu' && step !== 'lobby' && (
-    <div style={{ textAlign: 'center' }}>
-      <h2>{step.charAt(0).toUpperCase() + step.slice(1)}</h2>
-      <h3>Your Role: <strong>{role}</strong></h3>
-      <h3>Time Remaining: <strong>{timer}</strong> seconds</h3>
-
-      {step === 'day' && (
+    <div className="game-container">
+      {/* Render TitlePage for non-gameplay phases */}
+      {step === 'menu' || step === 'lobby' || step === 'game_over' ? (
         <>
-          <Voting players={players} gameId={gameId} playerId={playerId} />
-          <div style={{ marginTop: '20px' }}>
-            <h3>Submit Your Speech</h3>
-            <textarea
-              value={playerSpeech}
-              onChange={(e) => setPlayerSpeech(e.target.value)}
-              rows={4}
-              cols={50}
-              style={{
-                width: '100%',
-                padding: '10px',
-                borderRadius: '5px',
-                border: '1px solid #ccc',
-                marginBottom: '10px',
-              }}
-            />
-            <button
-              onClick={submitPlayerSpeech}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#3498db',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer',
-              }}>
-              Submit Speech
-            </button>
-              <Recorder gameId={gameId} playerId={playerId} />
-          </div>
+          {step === 'menu' && (
+            <div style={{ padding: '40px', fontFamily: 'Arial, sans-serif', maxWidth: '600px', margin: '0 auto', color: '#333' }}>
+              <h1 style={{ textAlign: 'center', color: 'black', fontSize: '60px', fontFamily: 'Courier New, monospace' }}>MaAIfia</h1>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ marginBottom: '20px', width: '100%' }}>
+                  <input
+                    style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '5px', border: '1px solid #ccc' }}
+                    type="text"
+                    placeholder="Enter your name"
+                    value={playerName}
+                    onChange={(e) => setPlayerName(e.target.value)}
+                  />
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      
+                      checked={includeAI}
+                      onChange={(e) => setIncludeAI(e.target.checked)}
+                    />
+                    <div style={{ color: 'black' }}>Include AI Player</div>
+                  </label>
+                </div>
+                <button
+                  onClick={createGame}
+                  disabled={!playerName}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#3498db',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    marginBottom: '20px',
+                  }}>
+                  Create Game
+                </button>
+                <hr style={{ width: '100%', margin: '20px 0' }} />
+                <div style={{ width: '100%' }}>
+                  <input
+                    style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '5px', border: '1px solid #ccc' }}
+                    type="text"
+                    placeholder="Enter Game ID"
+                    value={gameId}
+                    onChange={(e) => setGameId(e.target.value)}
+                  />
+                  <input
+                    style={{ width: '100%', padding: '10px', marginBottom: '20px', borderRadius: '5px', border: '1px solid #ccc' }}
+                    type="text"
+                    placeholder="Enter your name"
+                    value={playerName}
+                    onChange={(e) => setPlayerName(e.target.value)}
+                  />
+                  <button
+                    onClick={joinGame}
+                    disabled={!gameId || !playerName}
+                    style={{
+                      padding: '10px 20px',
+                      backgroundColor: '#2ecc71',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '5px',
+                      cursor: 'pointer',
+                    }}>
+                    Join Game
+                  </button>
+                </div>
+                <TitlePage />
+              </div>
+            </div>
+          )}
+  
+          {step === 'lobby' && (
+            <div style={{ textAlign: 'center' }}>
+              <h2 style={{ color: '#2980b9' }}>Game Lobby</h2>
+              <p>
+                Game ID: <strong>{gameId}</strong>
+              </p>
+              <p>Waiting for players to join...</p>
+              <ul style={{ listStyleType: 'none', margin: '20px 0', padding: 0 }}>
+                {players.map((player) => (
+                  <li key={player.id} style={{ marginBottom: '10px' }}>
+                    {player.name}{' '}
+                    {player.id === players[0].id && (
+                      <span style={{ color: '#e74c3c' }}>(host)</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {players.length > 0 && players[0].id === playerId && (
+                <button
+                  onClick={startGame}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#e67e22',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                  }}>
+                  Start Game
+                </button>
+              )}
+            </div>
+          )}
+  
+          {step === 'game_over' && (
+            <div style={{ textAlign: 'center' }}>
+              <h2>Game Over</h2>
+              {/* You can display the winner or any other game over information here */}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Gameplay Phases */}
+          {step !== 'menu' && step !== 'lobby' && (
+            <>
+              {/* Render TitlePage for phase transitions */}
+              
+  
+              <PhaseTracker phase={step} dayNumber={1} />
+  
+              <div className="game-container">
+                <div className="middle">
+                  <EventDisplay
+                    players={players}
+                    gameId={gameId}
+                    playerId={playerId}
+                    role={role}
+                    step={step}
+                  />
+                  <div>
+                    <Timer time={timer} />
+                    <Notes />
+                  </div>
+                </div>
+  
+                <CharacterBar role={role} players={players} gameId={gameId} playerId={playerId}/>
+              </div>
+  
+  
+              {step === 'night' && role === 'mafia' && (
+                <div style={{ textAlign: 'center', marginTop: '20px' }}>
+                  <h2>Night Phase</h2>
+                  <h3>Your Role: <strong>{role}</strong></h3>
+                 
+
+                  <div style={{ marginTop: '20px' }}>
+                    <h3>Select a player to eliminate</h3>
+                    {players
+                      .filter((player) => player.alive && player.id !== playerId)
+                      .map((player) => (
+                        <button
+                          key={player.id}
+                          onClick={() => setTargetId(player.id)}
+                          style={{
+                            display: 'block',
+                            padding: '10px 20px',
+                            margin: '10px auto',
+                            backgroundColor: '#e74c3c',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '5px',
+                            cursor: 'pointer',
+                          }}>
+                          {player.name}
+                        </button>
+                      ))}
+                    <button
+                      onClick={submitMafiaAction}
+                      style={{
+                        padding: '10px 20px',
+                        backgroundColor: '#c0392b',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: 'pointer',
+                        marginTop: '10px',
+                      }}>
+                      Submit Mafia Action
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </>
       )}
-
-      {step === 'night' && role === 'mafia' && (
-        <div style={{ marginTop: '20px' }}>
-          <h3>Select a player to eliminate</h3>
-          {players.filter((player) => player.alive).map((player) => (
-            <button
-              key={player.id}
-              onClick={() => setTargetId(player.id)}
-              style={{
-                display: 'block',
-                padding: '10px 20px',
-                margin: '10px auto',
-                backgroundColor: '#e74c3c',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer',
-              }}>
-              {player.name}
-            </button>
-          ))}
-          <button
-            onClick={submitMafiaAction}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#c0392b',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              marginTop: '10px',
-            }}>
-            Submit Mafia Action
-          </button>
-        </div>
-      )}
-
-      <Notes />
     </div>
-  )}
-</div>
   );
+  
 }
 
 export default Game;

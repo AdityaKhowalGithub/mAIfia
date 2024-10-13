@@ -1,8 +1,9 @@
 .App {
   font-family: Arial, sans-serif;
   text-align: center;
-  /* background-image: url("../public/background_blur.jpg");; */
-  background-color: black;
+  background-image: url("../public/background_blur.jpg"); /* Set the background image */
+
+
   background-size: cover; /* Cover the entire background */
   background-position: center; /* Center the background image */
   background-repeat: no-repeat; /* Prevent the background from repeating */

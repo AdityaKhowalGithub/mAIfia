@@ -1,67 +1,54 @@
-import React, { useState, useEffect } from "react";
-import Character from "./Character";
-import "../CharacterBar.css";
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import Character from './Character';
+import Recorder from './Recorder'; // Ensure Recorder is imported
+import '../CharacterBar.css';
 
-const generateRandomRoles = () => {
-  const roles = [
-    "mafia",
-    "mafia",
-    "doctor",
-    "detective",
-    "normal",
-    "normal",
-    "normal",
-    "normal",
-  ];
-
-  for (let i = roles.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [roles[i], roles[j]] = [roles[j], roles[i]];
-  }
-
-  return roles;
-};
-
-const CharacterBar = () => {
-  const [playerCharacter, setPlayerCharacter] = useState(0);
-  const [selectedCharacter, setSelectedCharacter] = useState(null);
+const CharacterBar = ({ role, players, gameId, playerId }) => {
+  const [playerCharacter, setPlayerCharacter] = useState(() => {
+    const index = players.findIndex((player) => player.id === playerId);
+    return index !== -1 ? index : 0;
+  });
   const [votedCharacter, setVotedCharacter] = useState(null);
   const [speakingQueue, setSpeakingQueue] = useState([]);
-  const [characters, setCharacters] = useState(() => {
-    const roles = generateRandomRoles();
-    return roles.map((role, index) => ({
-      id: index,
+  const [characters, setCharacters] = useState(() =>
+    players.map((player, index) => ({
+      id: player.id,
       sprite: `/character${index + 1}.png`,
       voice: `voice${index + 1}.mp3`,
-      role: role,
-      isRealPlayer: index === 0,
-      isDead: false,
+      role: player.role,
+      isRealPlayer: player.id === playerId,
+      isDead: !player.alive,
       isSpeaking: false,
       isRaisingHand: false,
-    }));
-  });
+    }))
+  );
 
-  const handleCharacterClick = (id) => {
-    setSelectedCharacter((prevSelected) => (prevSelected === id ? null : id));
-  };
+  const handleCharacterClick = async (id) => {
+    if (id === playerId || characters.find((char) => char.id === id).isDead) return;
 
-  const handleVote = () => {
-    if (selectedCharacter !== null) {
-      console.log(`Voted for character ${selectedCharacter}`);
-      setVotedCharacter(selectedCharacter); // Update voted character state
+    try {
+      await axios.post('http://127.0.0.1:5000/submit_vote', {
+        game_id: gameId,
+        player_id: playerId,
+        target_id: id,
+      });
+      setVotedCharacter(id);
+    } catch (error) {
+      console.error('Error submitting vote:', error);
     }
   };
 
   const handleRaiseHand = () => {
     const playerChar = characters[playerCharacter];
-    if (!playerChar.isRaisingHand && !speakingQueue.includes(playerCharacter)) {
-      setSpeakingQueue([...speakingQueue, playerCharacter]);
-    } else if (playerChar.isRaisingHand) {
-      setSpeakingQueue(speakingQueue.filter((id) => id !== playerCharacter));
+    if (!playerChar.isRaisingHand && !speakingQueue.includes(playerChar.id)) {
+      setSpeakingQueue([...speakingQueue, playerChar.id]);
+    } else {
+      setSpeakingQueue(speakingQueue.filter((id) => id !== playerChar.id));
     }
     setCharacters((chars) =>
       chars.map((char) =>
-        char.id === playerCharacter
+        char.id === playerChar.id
           ? { ...char, isRaisingHand: !char.isRaisingHand }
           : char
       )
@@ -71,13 +58,12 @@ const CharacterBar = () => {
   useEffect(() => {
     const speakingInterval = setInterval(() => {
       if (speakingQueue.length > 0) {
-        const speakingCharacter = speakingQueue[0];
+        const speakingCharacterId = speakingQueue[0];
         setCharacters((chars) =>
-          chars.map((char, index) => ({
+          chars.map((char) => ({
             ...char,
-            isSpeaking: index === speakingCharacter,
-            isRaisingHand:
-              index === speakingCharacter ? false : char.isRaisingHand,
+            isSpeaking: char.id === speakingCharacterId,
+            isRaisingHand: char.id === speakingCharacterId ? false : char.isRaisingHand,
           }))
         );
         setSpeakingQueue((prevQueue) => prevQueue.slice(1));
@@ -91,6 +77,11 @@ const CharacterBar = () => {
     return () => clearInterval(speakingInterval);
   }, [speakingQueue]);
 
+  const submitPlayerSpeech = () => {
+    console.log('Player speech submitted');
+    // Add your logic for speech submission here
+  };
+
   return (
     <div className="character-bar-container">
       <div className="character-bar">
@@ -103,48 +94,62 @@ const CharacterBar = () => {
             isDead={character.isDead}
             role={character.role}
             isRealPlayer={character.isRealPlayer}
-            isSelected={selectedCharacter === character.id}
+            isSelected={votedCharacter === character.id}
             isRaisingHand={character.isRaisingHand}
             onClick={() => handleCharacterClick(character.id)}
           />
         ))}
       </div>
+
       <div className="control-panel">
-        <div className="player-indicator">
-          <span>Playing as: </span>
-          <img
-            src={characters[playerCharacter].sprite}
-            alt="Player Character"
-            className="player-icon"
-          />
-          <span>{characters[playerCharacter].role}</span>
+        {/* First Row: Player Indicator, Raise Hand, and Queue */}
+        <div className="first-row" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <div className="player-indicator">
+            <span>Playing as: </span>
+            <img
+              src={characters[playerCharacter].sprite}
+              alt="Player Character"
+              className="player-icon"
+            />
+            <span>{characters[playerCharacter].role}</span>
+          </div>
+
+          <div className="button-container">
+            <button onClick={handleRaiseHand}>Raise Hand</button>
+          </div>
+
+          <div className="queue-indicator">
+            <span>Queue: </span>
+            {speakingQueue.map((charId, index) => {
+              const char = characters.find((c) => c.id === charId);
+              return (
+                <img
+                  key={index}
+                  src={char.sprite}
+                  alt={`Character ${charId}`}
+                  className="queue-icon"
+                />
+              );
+            })}
+          </div>
         </div>
-        <div className="button-container">
-          <button onClick={handleVote} disabled={selectedCharacter === null}>
-            Vote
+
+        {/* Second Row: Submit Speech and Recorder */}
+        <div className="second-row" style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+          <button
+            onClick={submitPlayerSpeech}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#3498db',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+            }}
+          >
+            Submit Speech
           </button>
-          <button onClick={handleRaiseHand}>Raise Hand</button>
-        </div>
-        <div className="queue-indicator">
-          <span>Queue: </span>
-          {speakingQueue.map((charId, index) => (
-            <img
-              key={index}
-              src={characters[charId].sprite}
-              alt={`Character ${charId + 1}`}
-              className="queue-icon"
-            />
-          ))}
-        </div>
-        <div className="voted-indicator">
-          <span>Voted for: </span>
-          {votedCharacter !== null && (
-            <img
-              src={characters[votedCharacter].sprite}
-              alt={`Voted Character ${votedCharacter + 1}`}
-              className="voted-icon"
-            />
-          )}
+          <Recorder gameId={gameId} playerId={playerId} />
         </div>
       </div>
     </div>

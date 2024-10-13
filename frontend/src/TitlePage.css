@@ -13,11 +13,18 @@ body {
   justify-content: center;
   align-items: center;
   width: 100vw; /* Full width of the viewport */
-  height: 25vh; /* Full height of the viewport */
-  background-color: black; /* Background color */
+  height: 25vh; /* Full height of the viewport add shadow  */
+  
+  
   color: white; /* Text color */
   font-family: "Courier New", Courier, monospace; /* Monospaced font */
   transition: background-color 0.5s ease; /* Smooth transition for background changes */
+}
+
+
+/* add shadow on all text*/
+.title-page * {
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .typing-text {

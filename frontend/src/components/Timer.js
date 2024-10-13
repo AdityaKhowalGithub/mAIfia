@@ -1,21 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 
-function Timer({ initialTime, onTimeUp }) {
-  const [time, setTime] = useState(initialTime);
-
-  useEffect(() => {
-    let interval = null;
-    if (time > 0) {
-      interval = setInterval(() => {
-        setTime((prevTime) => prevTime - 1);
-      }, 1000);
-    } else if (time === 0) {
-      onTimeUp(); // Call the onTimeUp function when the timer hits 0
-    }
-    return () => clearInterval(interval); // Clean up the interval on unmount
-  }, [time, onTimeUp]);
-
-  // Inline styles
+function Timer({ time}) {
   const styles = {
     timer: {
       width: "20rem", // Set a fixed width
@@ -39,6 +24,7 @@ function Timer({ initialTime, onTimeUp }) {
 
   return (
     <div style={styles.timer}>
+      {/* <h3>Time Remaining: <strong>{time}</strong> seconds</h3> */}
       <p style={styles.timerText}>Time remaining: {time} seconds</p>
     </div>
   );
