@@ -1,9 +1,16 @@
 .App {
   font-family: Arial, sans-serif;
   text-align: center;
+  background-image: url("../public/background.jpeg"); /* Change to the path of your background image */
+  background-size: cover; /* Cover the entire background */
+  background-position: center; /* Center the background image */
+  background-repeat: no-repeat; /* Prevent the background from repeating */
+  height: 100vh; /* Set the height to cover the full viewport */
+  color: white; /* Set the text color to white for better visibility */
 }
 
-h1, h2 {
+h1,
+h2 {
   color: #333;
 }
 
@@ -17,4 +24,3 @@ textarea {
   padding: 10px;
   font-size: 16px;
 }
-

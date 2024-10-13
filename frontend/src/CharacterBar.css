@@ -1,8 +1,16 @@
 .character-bar-container {
-  display: flex;
+  display: flex; /* Use flex for centering */
   flex-direction: column;
   align-items: center;
-  width: 100%;
+  justify-content: center; /* Center vertically */
+  width: 80%; /* Set width to 80% of the screen */
+  max-width: 1000px; /* Optional: Set a max-width for larger screens */
+  height: auto; /* Allow height to adjust based on content */
+  backdrop-filter: blur(10px); /* Apply blur for frosted glass effect */
+  background: rgba(255, 255, 255, 0.2); /* Semi-transparent white background */
+  border-radius: 10px; /* Round the edges */
+  padding: 20px; /* Add padding */
+  margin: 20px auto; /* Center horizontally with auto margins */
 }
 
 .character-bar {
@@ -12,6 +20,8 @@
   width: 100%;
   height: 150px;
   margin-bottom: 20px;
+  backdrop-filter: blur(10px); /* Apply blur for frosted glass effect */
+  border-radius: 10px; /* Round the edges */
 }
 
 .control-panel {
@@ -20,12 +30,19 @@
   align-items: center;
   width: 100%;
   padding: 0 20px;
+  backdrop-filter: blur(10px); /* Apply blur for frosted glass effect */
+  border-radius: 10px; /* Round the edges *
+  font-family: "Courier New", Courier, monospace; /* Monospace font */
 }
 
 .player-indicator,
 .queue-indicator {
   display: flex;
   align-items: center;
+  font-family: "Courier New", Courier, monospace; /* Monospace font */
+  background-color: rgba(255, 255, 0, 0.3); /* Highlight background color */
+  padding: 5px; /* Add padding to indicators */
+  border-radius: 5px; /* Round the edges */
 }
 
 .player-icon,
@@ -54,6 +71,7 @@ button {
   color: white;
   border: none;
   border-radius: 5px;
+  font-family: "Courier New", Courier, monospace; /* Monospace font */
 }
 
 button:disabled {
