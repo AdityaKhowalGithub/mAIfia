@@ -22,6 +22,7 @@ function Game() {
   const [timer, setTimer] = useState(0);
   const [includeAI, setIncludeAI] = useState(false);
   const [playerSpeech, setPlayerSpeech] = useState('');
+  const audioRef = useRef(null);
   
 
 
@@ -56,7 +57,14 @@ function Game() {
       }
     });
 
+    socket.on('play_audio', (data)=>{
+      if (data.game_id === gameId){
+        playAudio(data.audio_link);
+      }
+    });
+  
     return () => {
+      socket.off('play_audio');
       socket.off('night_started');
       socket.off('day_started');
     };
@@ -71,6 +79,14 @@ function Game() {
     } catch (error) {
       console.error('Error playing speech:', error);
     }
+  };
+
+  const playAudio = async (audioLink) => {
+    const audio = new Audio(audioLink);
+    audio.play().catch((error) => {
+      console.error('Error playing audio:', error);
+    });
+
   };
 
   useEffect(() => {
