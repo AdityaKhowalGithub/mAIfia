@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
-import uuid, random, io, boto3, time, json, re
+import uuid, random, io, boto3, time, json, re, string
 from threading import Thread, Lock
 from queue import Queue
 from botocore.exceptions import ClientError
@@ -38,7 +38,6 @@ def process_speech_queue():
 
         speech_queue.task_done()
 
-
 # Start the speech processing thread
 Thread(target=process_speech_queue, daemon=True).start()
 
@@ -46,9 +45,6 @@ def queue_speech(game_id, text, voice_id):
     """Add a speech to the queue safely."""
     with speech_lock:
         speech_queue.put((game_id, text, voice_id))
-
-
-
 
 # Modify these functions to manage the phase based on the backend timer.
 def timer_thread(game_id, duration):
@@ -74,7 +70,7 @@ def start_night_phase(game_id):
     game = games[game_id]
     game['phase'] = 'night'
     socketio.emit('night_started', {'game_id': game_id}, room=game_id)
-    socketio.emit('play_speech', {'game_id': game_id, 'voice': 'Ruth', 'text': "Night Phase has Started"}, room=game_id)
+    queue_speech(game_id, "Night Phase has Started", voice_id='Ruth')
     start_timer(game_id, 10)  # Start a 10-second timer for the night phase
 
 def start_day_phase(game_id):
@@ -82,14 +78,14 @@ def start_day_phase(game_id):
     game['phase'] = 'day'
     socketio.emit('day_started', {'game_id': game_id}, room=game_id)
     queue_speech(game_id, "Day Phase has Started", voice_id='Ruth')
-    #socketio.emit('play_speech', {'game_id': game_id, 'voice': 'Ruth','text': "Day Phase has Started"}, room=game_id)
 
 
-      # AI Player submits a vote
+    # AI Player submits a vote
     if game['include_ai']:
         ai_player = next((p for p in game['players'].values() if p['name'] == 'AI player'), None)
         if ai_player and ai_player['alive']:
             target_player = next((p for p in game['players'].values() if p['alive'] and p['id'] != ai_player['id']), None)
+            submit_vote(game_id, ai_player['id'], target_player['id'])
             ai_speech = generate_ai_speech(game_id)
             #queue_speech(game_id, ai_speech)
             queue_speech(game_id, ai_speech, voice_id='Matthew')
@@ -101,6 +97,7 @@ def start_day_phase(game_id):
                                             'target_id': target_player['id']}, room=game_id)
 
     start_timer(game_id, 30)  # Start a 30-second timer for the day phase
+    
 def generate_ai_speech(game_id):
     def create_context(role, temperament):
         context_prompt = (
@@ -138,7 +135,8 @@ def generate_ai_speech(game_id):
     context = create_context(ai_player['role'], 'cunning')
     for player in game['players'].values():
         context += f"{player['name']}: {game['speeches'].get(player['id'], '')}\n"
-    print(context)
+    context += "If the messages are empty, no one has spoken. Give a half sentence intro message."
+    
     try:
         # Make a call to Bedrock using the `converse` method
         response = bedrock_client.converse(
@@ -185,7 +183,7 @@ def check_win_conditions(game_id):
     if not mafia_alive or not civilians_alive:
         winner = 'Civilians' if not mafia_alive else 'Mafia'
         game['status'] = 'ended'
-        socketio.emit('play_speech', {'game_id': game_id, 'voice': 'Ruth', 'text': f"The game has ended. The {winner} have won!"}, room=game_id)
+        queue_speech(game_id, f"The game has ended. The {winner} have won!", voice_id='Ruth')
         socketio.emit('game_over', {'game_id': game_id, 'winner': winner}, room=game_id)
 
 def eliminate_player(game_id):
@@ -211,8 +209,7 @@ def eliminate_player(game_id):
     
     global winner
     if not winner:
-        socketio.emit('play_speech', {'game_id': game_id, 'voice': 'Ruth', 'text': f"Player {game['players'][eliminated_player_id]['name']} has been eliminated"}, room=game_id)
-    
+        queue_speech(game_id, f"Player {game['players'][eliminated_player_id]['name']} has been eliminated", voice_id='Ruth')
 
 # API Routes
 @app.route('/get_players', methods=['GET'])
@@ -254,7 +251,7 @@ def create_game():
     if not host_name:
         return jsonify({'error': 'Name is required'}), 400
 
-    game_id = str(uuid.uuid4())
+    game_id = str(''.join(random.choice(string.ascii_uppercase) for _ in range(4)))
     player_id = str(uuid.uuid4())
 
     games[game_id] = {
@@ -425,14 +422,15 @@ def voice():
     data = request.get_json()
     text = data.get('text')
     voice_id = data.get('voice')
-    #voice_id = data.get('voice_id', 'Ruth')  # Default voice
 
     if not text:
         return jsonify({'error': 'Text is required'}), 400
+    # text = '<speak><prosody rate="125%">' + text + '</prosody></speak>'
 
     try:
         response = polly_client.synthesize_speech(
             Text=text,
+            # TextType='ssml',
             OutputFormat='mp3',
             VoiceId=voice_id,
             Engine='generative'  # Specify the neural engine

@@ -13,7 +13,7 @@ body {
   justify-content: center;
   align-items: center;
   width: 100vw; /* Full width of the viewport */
-  height: 100vh; /* Full height of the viewport */
+  height: 25vh; /* Full height of the viewport */
   background-color: black; /* Background color */
   color: white; /* Text color */
   font-family: "Courier New", Courier, monospace; /* Monospaced font */

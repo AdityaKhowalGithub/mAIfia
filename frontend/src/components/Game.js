@@ -3,6 +3,8 @@ import io from 'socket.io-client';
 import axios from 'axios';
 import Voting from './Voting';
 import Notes from './Notes';
+import TitlePage from "./TitlePage";
+import "../App.css";
 
 const socket = io('http://127.0.0.1:5000', {
   withCredentials: true,
@@ -216,98 +218,193 @@ function Game() {
   };
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>Mafia Game</h1>
-      {step === 'menu' && (
-        <div>
+<div style={{ padding: '40px', fontFamily: 'Arial, sans-serif', maxWidth: '600px', margin: '0 auto', color: '#333' }}>
+  <h1 style={{ textAlign: 'center', color: '#d6d0c1', 'font-size': '60px', fontFamily: 'Courier New, monospace' }}>MaAIfia</h1>
+
+  {step === 'menu' && (
+    <>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ marginBottom: '20px', width: '100%' }}>
+        <input
+          style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '5px', border: '1px solid #ccc' }}
+          type="text"
+          placeholder="Enter your name"
+          value={playerName}
+          onChange={(e) => setPlayerName(e.target.value)}
+        />
+        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
           <input
-            type="text"
-            placeholder="Enter your name"
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
+            type="checkbox"
+            checked={includeAI}
+            onChange={(e) => setIncludeAI(e.target.checked)}
           />
-          <label>
-            <input
-              type="checkbox"
-              checked={includeAI}
-              onChange={(e) => setIncludeAI(e.target.checked)}
+
+          <div style={{ color: '#d6d0c1' }}>Include AI Player</div>
+        </label>
+      </div>
+      <button
+        onClick={createGame}
+        disabled={!playerName}
+        style={{
+          padding: '10px 20px',
+          backgroundColor: '#3498db',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '5px',
+          cursor: 'pointer',
+          marginBottom: '20px',
+        }}>
+        Create Game
+      </button>
+
+      <hr style={{ width: '100%', margin: '20px 0' }} />
+
+      <div style={{ width: '100%' }}>
+        <input
+          style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '5px', border: '1px solid #ccc' }}
+          type="text"
+          placeholder="Enter Game ID"
+          value={gameId}
+          onChange={(e) => setGameId(e.target.value)}
+        />
+        <input
+          style={{ width: '100%', padding: '10px', marginBottom: '20px', borderRadius: '5px', border: '1px solid #ccc' }}
+          type="text"
+          placeholder="Enter your name"
+          value={playerName}
+          onChange={(e) => setPlayerName(e.target.value)}
+        />
+        <button
+          onClick={joinGame}
+          disabled={!gameId || !playerName}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: '#2ecc71',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer',
+          }}>
+          Join Game
+        </button>
+      </div>
+      <TitlePage />
+    </div>
+    </>
+  )}
+
+  {step === 'lobby' && (
+    <>
+    <div style={{ textAlign: 'center' }}>
+      <h2 style={{ color: '#2980b9' }}>Game Lobby</h2>
+      <p>Game ID: <strong>{gameId}</strong></p>
+      <p>Waiting for players to join...</p>
+      <ul style={{ listStyleType: 'none', margin: '20px 0', padding: 0 }}>
+        {players.map((player) => (
+          <li key={player.id} style={{ marginBottom: '10px' }}>
+            {player.name} {player.id === players[0].id && <span style={{ color: '#e74c3c' }}>(host)</span>}
+          </li>
+        ))}
+      </ul>
+      {players.length > 0 && players[0].id === playerId && (
+        <button
+          onClick={startGame}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: '#e67e22',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer',
+          }}>
+          Start Game
+        </button>
+      )}
+    </div>
+
+    </>
+  )}
+
+  {step !== 'menu' && step !== 'lobby' && (
+    <div style={{ textAlign: 'center' }}>
+      <h2>{step.charAt(0).toUpperCase() + step.slice(1)}</h2>
+      <h3>Your Role: <strong>{role}</strong></h3>
+      <h3>Time Remaining: <strong>{timer}</strong> seconds</h3>
+
+      {step === 'day' && (
+        <>
+          <Voting players={players} gameId={gameId} playerId={playerId} />
+          <div style={{ marginTop: '20px' }}>
+            <h3>Submit Your Speech</h3>
+            <textarea
+              value={playerSpeech}
+              onChange={(e) => setPlayerSpeech(e.target.value)}
+              rows={4}
+              cols={50}
+              style={{
+                width: '100%',
+                padding: '10px',
+                borderRadius: '5px',
+                border: '1px solid #ccc',
+                marginBottom: '10px',
+              }}
             />
-            Include AI Player
-          </label>
-          <button onClick={createGame} disabled={!playerName}>Create Game</button>
-          <hr />
-          <input
-            type="text"
-            placeholder="Enter Game ID"
-            value={gameId}
-            onChange={(e) => setGameId(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Enter your name"
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-          />
-          <button onClick={joinGame} disabled={!gameId || !playerName}>Join Game</button>
+            <button
+              onClick={submitPlayerSpeech}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#3498db',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer',
+              }}>
+              Submit Speech
+            </button>
+          </div>
+        </>
+      )}
+
+      {step === 'night' && role === 'mafia' && (
+        <div style={{ marginTop: '20px' }}>
+          <h3>Select a player to eliminate</h3>
+          {players.filter((player) => player.alive).map((player) => (
+            <button
+              key={player.id}
+              onClick={() => setTargetId(player.id)}
+              style={{
+                display: 'block',
+                padding: '10px 20px',
+                margin: '10px auto',
+                backgroundColor: '#e74c3c',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer',
+              }}>
+              {player.name}
+            </button>
+          ))}
+          <button
+            onClick={submitMafiaAction}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#c0392b',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              marginTop: '10px',
+            }}>
+            Submit Mafia Action
+          </button>
         </div>
       )}
-      {step === 'lobby' && (
-        <div>
-          <h2>Game Lobby</h2>
-          <p>Game ID: {gameId}</p>
-          <p>Waiting for players to join...</p>
-          <ul style={{ listStyleType: 'none', margin: 0, padding: 0 }}>
-            {players.map((player) => (
-              <li key={player.id}>{player.name} {player.id === players[0].id && '(host)'}</li>
-            ))}
-          </ul>
-          {players.length > 0 && players[0].id === playerId && (
-            <button onClick={startGame}>Start Game</button>
-          )}
-        </div>
-      )}
-      {step !== 'menu' && step !== 'lobby' && (
-        <div>
-          <h2>{step.charAt(0).toUpperCase() + step.slice(1)}</h2>
-          <h3>Your Role: {role}</h3>
-          <h3>Time Remaining: {timer} seconds</h3>
-          {step === 'day' && (
-  <>
-    <Voting
-      players={players}
-      gameId={gameId}
-      playerId={playerId}
-    />
-    <div>
-      <h3>Submit Your Speech</h3>
-      <textarea
-        value={playerSpeech}
-        onChange={(e) => setPlayerSpeech(e.target.value)}
-        rows={4}
-        cols={50}
-      />
-      <button onClick={submitPlayerSpeech}>Submit Speech</button>
+
+      <Notes />
     </div>
-  </>
-)}
-          {step === 'night' && role === 'mafia' && (
-            <div>
-              <h3>Select a player to eliminate</h3>
-              {players.filter((player) => player.alive).map((player) => (
-                <button
-                  key={player.id}
-                  onClick={() => setTargetId(player.id)}
-                >
-                  {player.name}
-                </button>
-              ))}
-              <button onClick={submitMafiaAction}>Submit Mafia Action</button>
-            </div>
-          )}
-          <Notes />
-        </div>
-      )}
-    </div>
+  )}
+</div>
   );
 }
 
