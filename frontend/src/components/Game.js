@@ -130,13 +130,16 @@ function Game() {
     socket.on('game_started', async (data) => {
       if (data.game_id === gameId) {
         setPlayers(data.players);
+        console.log(data.players);
+        
         await fetchRole();
+
         setStep('day');
         playSpeech('The game has started. It is now daytime.');
       }
     });
     return () => socket.off('game_started');
-  }, [gameId]);
+  }, [gameId, playerId]);
 
   const fetchRole = async () => {
     try {
@@ -169,6 +172,7 @@ function Game() {
   const joinGame = async () => {
     try {
       const response = await axios.post('http://127.0.0.1:5000/join_game', { game_id: gameId, name: playerName });
+      console.log("the response player id is" , response.data.player_id); 
       setPlayerId(response.data.player_id);
       setStep('lobby');
     } catch (error) {
@@ -179,7 +183,6 @@ function Game() {
   const startGame = async () => {
     try {
       await axios.post('http://127.0.0.1:5000/start_game', { game_id: gameId });
-      await fetchRole();
       setStep('day');
       playSpeech('The game has started. It is now daytime.');
     } catch (error) {
