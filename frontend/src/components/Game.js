@@ -339,13 +339,13 @@ function Game() {
           )}
   
           {step === 'lobby' && (
-            <div style={{ textAlign: 'center' }}>
-              <h2 style={{ color: '#2980b9' }}>Game Lobby</h2>
-              <p>
-                Game ID: <strong>{gameId}</strong>
+            <div style={{ textAlign: 'center', backgroundColor: '#1e1e1e', padding: '20px', borderRadius: '10px' }}>
+              <h2 style={{ color: '#3498db' }}>Game Lobby</h2>
+              <p style={{ color: '#ecf0f1' }}>
+                Game ID: <strong style={{ color: '#f39c12' }}>{gameId}</strong>
               </p>
-              <p>Waiting for players to join...</p>
-              <ul style={{ listStyleType: 'none', margin: '20px 0', padding: 0 }}>
+              <p style={{ color: '#bdc3c7' }}>Waiting for players to join...</p>
+              <ul style={{ listStyleType: 'none', margin: '20px 0', padding: 0, color: '#ecf0f1' }}>
                 {players.map((player) => (
                   <li key={player.id} style={{ marginBottom: '10px' }}>
                     {player.name}{' '}
@@ -365,6 +365,7 @@ function Game() {
                     border: 'none',
                     borderRadius: '5px',
                     cursor: 'pointer',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.2)',
                   }}>
                   Start Game
                 </button>
