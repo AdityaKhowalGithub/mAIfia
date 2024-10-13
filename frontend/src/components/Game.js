@@ -19,6 +19,7 @@ function Game() {
   const [targetId, setTargetId] = useState('');
   const [timer, setTimer] = useState(0);
   const [includeAI, setIncludeAI] = useState(false);
+  const [playerSpeech, setPlayerSpeech] = useState('');
 
 
   useEffect(() => {
@@ -126,6 +127,38 @@ function Game() {
   const handlePlayerJoined = (data) => {
     if (data.game_id === gameId) setPlayers(data.players);
   };
+  useEffect(() => {
+    const handlePlayerSpeech = (data) => {
+      if (data.game_id === gameId) {
+        console.log(`Player ${data.player_id} says: ${data.text}`);
+        // You can update state to display this in the UI
+      }
+    };
+  
+    socket.on('player_speech', handlePlayerSpeech);
+  
+    return () => {
+      socket.off('player_speech', handlePlayerSpeech);
+    };
+  }, [gameId]);
+  
+  useEffect(() => {
+    const handleAISpeech = async (data) => {
+      if (data.game_id === gameId) {
+        // Display the AI speech in the UI
+        console.log(`AI Player says: ${data.text}`);
+  
+        // Play the speech using the existing playSpeech function
+        await playSpeech(data.text);
+      }
+    };
+  
+    socket.on('ai_speech', handleAISpeech);
+  
+    return () => {
+      socket.off('ai_speech', handleAISpeech);
+    };
+  }, [gameId]);
 
   useEffect(() => {
     socket.on('game_started', async (data) => {
@@ -188,6 +221,18 @@ function Game() {
       console.error('Error starting game:', error);
     }
   };
+  const submitPlayerSpeech = async () => {
+    try {
+      await axios.post('http://127.0.0.1:5000/submit_speech', {
+        game_id: gameId,
+        player_id: playerId,
+        text: playerSpeech,
+      });
+      setPlayerSpeech(''); // Clear the input after submission
+    } catch (error) {
+      console.error('Error submitting speech:', error);
+    }
+  };
 
   return (
     <div style={{ padding: '20px' }}>
@@ -246,12 +291,24 @@ function Game() {
           <h3>Your Role: {role}</h3>
           <h3>Time Remaining: {timer} seconds</h3>
           {step === 'day' && (
-            <Voting
-              players = {players}
-              gameId = {gameId}
-              playerId = {playerId}
-            />
-          )}
+  <>
+    <Voting
+      players={players}
+      gameId={gameId}
+      playerId={playerId}
+    />
+    <div>
+      <h3>Submit Your Speech</h3>
+      <textarea
+        value={playerSpeech}
+        onChange={(e) => setPlayerSpeech(e.target.value)}
+        rows={4}
+        cols={50}
+      />
+      <button onClick={submitPlayerSpeech}>Submit Speech</button>
+    </div>
+  </>
+)}
           {step === 'night' && role === 'mafia' && (
             <div>
               <h3>Select a player to eliminate</h3>

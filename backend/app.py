@@ -3,8 +3,8 @@ from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import uuid, random, io, boto3
 import time
-from threading import Thread
-
+from threading import Thread, Lock
+from queue import Queue
 
 app = Flask(__name__)
 CORS(app)
@@ -20,6 +20,30 @@ bedrock_client = boto3.client('bedrock', region_name='us-east-1')  # Replace wit
 # In-memory storage for players and games (for development purposes)
 players = {}
 games = {}
+
+speech_queue = Queue()
+speech_lock = Lock()
+def process_speech_queue():
+    """Process speeches sequentially from the queue."""
+    while True:
+        game_id, text = speech_queue.get()  # Blocks until an item is available
+        if text:
+            # Emit play speech event to the client
+            socketio.emit('play_speech', {'game_id': game_id, 'text': text}, room=game_id)
+
+            # Ensure the next speech starts only after the current one finishes
+            time.sleep(5)  # Adjust this time to match the speech duration or dynamically determine it
+
+        speech_queue.task_done()
+
+# Start the speech processing thread
+Thread(target=process_speech_queue, daemon=True).start()
+
+def queue_speech(game_id, text):
+    """Add a speech to the queue safely."""
+    with speech_lock:
+        speech_queue.put((game_id, text))
+
 
 
 # Modify these functions to manage the phase based on the backend timer.
@@ -48,13 +72,42 @@ def start_night_phase(game_id):
     socketio.emit('night_started', {'game_id': game_id}, room=game_id)
     socketio.emit('play_speech', {'game_id': game_id, 'text': "Night Phase has Started"}, room=game_id)
     start_timer(game_id, 10)  # Start a 10-second timer for the night phase
-
 def start_day_phase(game_id):
     game = games[game_id]
     game['phase'] = 'day'
     socketio.emit('day_started', {'game_id': game_id}, room=game_id)
     socketio.emit('play_speech', {'game_id': game_id, 'text': "Day Phase has Started"}, room=game_id)
+
+      # AI Player submits a vote
+    if game['include_ai']:
+        ai_player = next((p for p in game['players'].values() if p['name'] == 'AI player'), None)
+        if ai_player and ai_player['alive']:
+            target_player = next((p for p in game['players'].values() if p['alive'] and p['id'] != ai_player['id']), None)
+            ai_speech = generate_ai_speech(game_id, ai_player)
+            queue_speech(game_id, ai_speech)
+
+            if target_player:
+                game.setdefault('votes', {})
+                game['votes'][ai_player['id']] = target_player['id']
+                socketio.emit('vote_cast', {'game_id': game_id, 'voter_id': ai_player['id'], 
+                                            'target_id': target_player['id']}, room=game_id)
+
     start_timer(game_id, 30)  # Start a 30-second timer for the day phase
+
+def generate_ai_speech(game_id, ai_player):
+    game = games[game_id]
+    player_speeches = game.get('speeches', {})
+    
+    # Combine all speeches into a context
+    context = ' '.join(player_speeches.values())
+
+    # For now, we'll use hard-coded messages
+    if ai_player['role'] == 'Mafia':
+        text = "I think we should trust each other."
+    else:
+        text = "We need to find the Mafia!"
+    return text
+
 
 # Helper functions
 def assign_roles(game):
@@ -199,6 +252,29 @@ def get_role():
 
     return jsonify({'role': player['role']}), 200
 
+@app.route('/submit_speech', methods=['POST'])
+def submit_speech():
+    data = request.get_json()
+    game_id = data.get('game_id')
+    player_id = data.get('player_id')
+    text = data.get('text')
+
+    if not game_id or not player_id or not text:
+        return jsonify({'error': 'Game ID, Player ID, and Text are required'}), 400
+
+    game = games.get(game_id)
+    if not game:
+        return jsonify({'error': 'Game not found'}), 404
+
+    # Store the speech in the game data
+    game.setdefault('speeches', {})
+    game['speeches'][player_id] = text
+
+    # Broadcast the speech to other players
+    socketio.emit('player_speech', {'game_id': game_id, 'player_id': player_id, 'text': text}, room=game_id)
+
+    return jsonify({'status': 'Speech submitted'}), 200
+
 @app.route('/submit_vote', methods=['POST'])
 def submit_vote():
     data = request.get_json()
@@ -229,6 +305,12 @@ def handle_join_room(data):
     player_id = data.get('player_id')
     join_room(game_id)
     print(f"Player {player_id} joined game {game_id}")
+
+@socketio.on('ai_speech')
+def handle_ai_speech(data):
+    game_id = data.get('game_id')
+    ai_text = data.get('text', '')
+    queue_speech(game_id, ai_text)
 
 # Voice synthesis route using AWS Polly
 @app.route('/voice', methods=['POST'])
