@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
-import uuid, random, io, boto3, time, json, re, string, requests
+import uuid, random, io, boto3, time, json, re, string, requests, os
 from threading import Thread, Lock
 from queue import Queue
 from botocore.exceptions import ClientError
@@ -12,9 +12,17 @@ CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 winner = None
 
+# S3 bucket for storing audio files
+S3_BUCKET = 'bhavikbucket179'
+s3_client = boto3.client('s3', region_name='us-west-2')
+
+
 # Initialize AWS Polly client
 polly_client = boto3.client('polly', region_name='us-east-1')
 moderator = boto3.client('polly', region_name='us-east-1')
+
+# Initialize AWS Transcribe client
+transcribe_client = boto3.client('transcribe', region_name='us-west-2')
 
 # Initialize AWS Bedrock client
 bedrock_client = boto3.client('bedrock-runtime', region_name='us-east-2')
@@ -25,17 +33,26 @@ games = {}
 
 speech_queue = Queue()
 speech_lock = Lock()
+def transcribe_audio(player_id):
+    """Use AWS Transcribe to process the audio."""
+    response = transcribe_client.start_transcription_job(
+        TranscriptionJobName="GameTranscription",
+        Media={'MediaFileUri': f"s3://{S3_BUCKET}/{player_id}.mp3"},
+        MediaFormat='mp3',  # Change this based on your audio file format
+        LanguageCode='en-US'
+    )
+    return response
+
 def process_speech_queue():
     """Process speeches sequentially from the queue."""
     while True:
-        game_id, text, voice_id = speech_queue.get()  # Now unpack voice_id
-        if text:
-            # Emit play speech event to the client, including voice_id
-            socketio.emit('play_speech', {'game_id': game_id, 'voice_id': voice_id, 'text': text}, room=game_id)
-
-            # Ensure the next speech starts only after the current one finishes
-            time.sleep(5)
-
+        game_id, audio_stream, player_id = speech_queue.get()
+        if audio_stream:
+            text = transcribe_audio(player_id)
+            if text:
+                # Store the transcription in game context
+                games[game_id]['speeches'][player_id] = text
+                socketio.emit('player_speech', {'game_id': game_id, 'player_id': player_id, 'text': text}, room=game_id)
         speech_queue.task_done()
 
 # Start the speech processing thread
@@ -91,7 +108,7 @@ def start_day_phase(game_id):
                 'player_id': ai_player['id'],
                 'text': generate_ai_speech(game_id)
             }
-            requests.post(url, json=data)
+            requests.post("127.0.0.1:3000/submit_vote", json=data)
             
             ai_speech = generate_ai_speech(game_id)
             #queue_speech(game_id, ai_speech)
@@ -464,16 +481,22 @@ def voice():
 # Endpoint to receive voice recordings from players
 @app.route('/upload_voice', methods=['POST'])
 def upload_voice():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-
+    game_id = request.form.get('game_id').to_string()
+    player_id = request.form.get('player_id').to_string()
     file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
 
-    # Save or process the file as needed
-    # For simplicity, we'll just acknowledge receipt
-    return jsonify({'status': 'Voice received'}), 200
+    if not game_id or not player_id or not file:
+        return jsonify({'error': 'Missing parameters'}), 400
+
+    # Save the audio file to S3
+    audio_stream = f"{player_id}.mp3"
+    s3_client.upload_fileobj(file, S3_BUCKET, audio_stream)
+    
+    # Process the audio file using AWS Transcribe
+    queue_speech(game_id, player_id)
+
+    return jsonify({'status': 'Audio uploaded'}), 200
+    
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
