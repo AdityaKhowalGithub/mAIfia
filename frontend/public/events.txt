@@ -1,22 +1,27 @@
-PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS PENIS 
-BOOP BOOPP POOP 
-BOOP BOOPP POOP 
-BOOP BOOPP POOP 
-BOOP BOOPP POOP 
-BOOP BOOPP POOP 
+Night 1: Player 3 was murdered by the mafia.
+Player 5 was healed by the doctor.
+Player 1 revealed their role as a detective.
 
-BOOP BOOPP POOP 
-BOOP BOOPP POOP 
-BOOP BOOPP POOP 
-BOOP BOOPP POOP 
-BOOP BOOPP POOP 
-BOOP BOOPP POOP 
+Day 2: Player 2 accused Player 4 of being the mafia.
+Player 6 defended Player 4, claiming they were with the town.
+The town voted, and Player 4 was executed.
 
-BOOP BOOPP POOP 
-BOOP BOOPP POOP 
-v
-BOOP BOOPP POOP 
+Night 2: Player 7 was killed by the mafia.
+Player 1 investigated Player 2 and discovered they were the mafia.
+Player 5 was targeted but was protected again.
 
-BOOP BOOPP POOP 
-BOOP BOOPP POOP 
-BOOP BOOPP POOP 
+Day 3: Player 3 claimed they saw Player 2 committing murder.
+Player 2 denied the accusation and pointed fingers at Player 6.
+The town debated and ultimately decided to lynch Player 2.
+
+Night 3: Player 5 was targeted again but survived once more.
+Player 1 investigated Player 6 and confirmed they were a town member.
+Player 8 was killed by the mafia.
+
+Day 4: The town was in chaos as they realized they were down to three players.
+Player 1 suggested a plan to identify the remaining mafia.
+The town voted to execute Player 6, thinking they were suspicious.
+
+Night 4: Player 1 was the last remaining town member.
+Player 7, who was actually the mafia, targeted Player 1 for elimination.
+The game ends as the mafia wins with the last town member gone.

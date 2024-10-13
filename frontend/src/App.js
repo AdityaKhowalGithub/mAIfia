@@ -1,16 +1,11 @@
 import React from "react";
 import "./App.css";
-import CharacterBar from "./components/CharacterBar";
-import EventDisplay from "./components/EventDisplay";
-import PhaseTracker from "./components/PhaseTracker";
+import GameDisplay from "./components/GameDisplay";
 
 function App() {
   return (
     <div className="App">
-      <PhaseTracker />
-      <EventDisplay />
-      <CharacterBar />
-      {/* Add other components or content for your game here */}
+      <GameDisplay />
     </div>
   );
 }

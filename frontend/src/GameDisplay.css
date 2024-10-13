@@ -1,0 +1,30 @@
+.game-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Center items vertically */
+  align-items: center; /* Center items horizontally */
+  margin: auto;
+  height: 100vh; /* Adjust height to fill the screen */
+}
+
+.middle {
+  display: flex;
+  flex-direction: row;
+  justify-content: center; /* Center items in the row */
+  align-items: center; /* Center items vertically in the middle section */
+  padding: 20px;
+  flex-grow: 1; /* Make the middle section take up available space */
+}
+
+.middle > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Center items vertically in this div */
+  align-items: center; /* Center items horizontally in this div */
+}
+
+.character-bar {
+  padding: 20px;
+  display: flex;
+  justify-content: center; /* Center items in the character bar */
+}

@@ -24,7 +24,6 @@ const Character = ({
       onClick={onClick}
     >
       <img src={sprite} alt="Character Sprite" className="character-sprite" />
-      <div className="character-role">{role}</div>
       {isRaisingHand && <div className="hand-icon">✋</div>}
     </div>
   );

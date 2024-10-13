@@ -1,4 +1,3 @@
-/* EventDisplay.css */
 .event-display {
   width: 50rem; /* Set a fixed width */
   height: 400px; /* Set a fixed height */
@@ -7,10 +6,9 @@
   padding: 10px;
   background: rgba(255, 255, 255, 0.1); /* Semi-transparent white background */
   backdrop-filter: blur(10px); /* Apply blur effect for the glassy look */
-  color: black; /* Set text color to white */
+  color: black; /* Set text color to black */
   font-family: "Courier New", Courier, monospace; /* Use a monospace font */
   text-align: left; /* Left-align the text */
-  position: relative; /* Make positioning relative for title */
   border-radius: 10px; /* Round the edges */
   box-shadow: 0 4px 5px rgba(0, 0, 0, 0.5); /* Add shadow behind the display */
 }
@@ -30,12 +28,10 @@
   text-align: left; /* Left-align the text */
   font-size: 32px; /* Increase font size */
   font-weight: bold; /* Make text bold */
-  color: white; /* Set title color to red */
+  color: black; /* Set title color to white */
   font-family: "Courier New", Courier, monospace; /* Use a monospace font */
-  margin-bottom: 5px; /*Add space below the title */
-  position: sticky; /* Make the title sticky */
+  margin-bottom: 5px; /* Add space below the title */
   backdrop-filter: blur(10px); /* Apply blur effect for title */
-
   padding: 10px; /* Add padding to the title */
   border-radius: 10px; /* Round the edges of the title */
 }
