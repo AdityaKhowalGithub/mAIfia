@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
-import uuid, random, io, boto3, time, json
+import uuid, random, io, boto3, time, json, re
 from threading import Thread, Lock
 from queue import Queue
 from botocore.exceptions import ClientError
@@ -99,11 +99,30 @@ def start_day_phase(game_id):
 def generate_ai_speech(game_id):
     def create_context(role, temperament):
         context_prompt = (
-            f"Answer with natural speech, you are being directly fed into a text-to-speech model. You are an AI that is playing the game mafia and have the role of a {role}. "
-            f"Your demeanor is {temperament}. "
-            f"Engage in the conversation by providing insights, answering questions, and "
-            f"interacting with the user in a manner that reflects your role and temperament. Your intention is to win, do not reveal your role unless it helps you win. Be strategic."
-            f"The game state is as follows:\n"
+                        f'''
+            You are a character in a Mafia game. You must speak as if you are playing a role in a real conversation, trying to deceive or convince others. Your intention is to win the game. You can be one of the following roles:
+
+            Mafia: Your goal is to eliminate the other players without getting caught. Blend in with innocent players, lie convincingly, and subtly direct suspicion onto others.
+
+            Detective: You are secretly investigating other players, but you must be careful not to reveal your role too soon. Speak with logic and caution, while gathering enough evidence to expose the Mafia.
+
+            Doctor: Your role is to save other players from being eliminated. You want to protect others and avoid suspicion yourself. Be persuasive and trusted by the group without revealing your identity.
+
+            Innocent Villager: You don’t have special powers, but you must help the group by observing and participating in discussions to identify the Mafia. Use reasoning, but be mindful that you are vulnerable to being falsely accused.
+
+            Your role is {role}. Your demeanor is {temperament}. Your anme is AI Player.
+            
+            Given your role, generate a 1-2 sentence statement that fits within the flow of the conversation, considering these factors:
+
+            Respond to a direct accusation or suspicion that has been raised against you or another player.
+            If you are Mafia, create doubt in the group by subtly pointing fingers or deflecting blame. If you are innocent or hold a special role, defend yourself and try to identify who might be the Mafia.
+            Your tone can range from calm and collected to anxious or frustrated, depending on the pressure you’re under. You may never use emotes or stage directions.
+            The response should sound natural, as though you were engaging in a real conversation during the game. Your response must be one sentence. Two is a strict maximum and should be used sparingly. Make sure to use the names of the other players.
+
+            The following is some game context:
+            {game['players']}
+            The following is the current conversation:
+            '''
         )
         return context_prompt
 
@@ -114,8 +133,7 @@ def generate_ai_speech(game_id):
     context = create_context(ai_player['role'], 'cunning')
     for player in game['players'].values():
         context += f"{player['name']}: {game['speeches'].get(player['id'], '')}\n"
-    context += "Make your response concise, it is a conversation. One sentence max."
-
+    print(context)
     try:
         # Make a call to Bedrock using the `converse` method
         response = bedrock_client.converse(
@@ -131,9 +149,9 @@ def generate_ai_speech(game_id):
         )
 
         # Extract response text
-        print(response)
         response_text = response['output']['message']['content'][0]['text']
-        #response_text = response.get('message', {}).get('content', '')
+        response_text = re.sub(r"\*{1,2}(.*?)\*{1,2}", "", response_text)
+        
         print(f"AI Player response: {response_text}")
         return response_text
 
