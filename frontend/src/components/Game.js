@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import io from 'socket.io-client';
+
 import axios from 'axios';
 import Voting from './Voting';
 import Notes from './Notes';
@@ -11,10 +11,7 @@ import CharacterBar from "./CharacterBar";
 import PhaseTracker from "./PhaseTracker";
 import "../App.css";
 import "../Game.css";
-const socket = io('http://127.0.0.1:5000', {
-  withCredentials: true,
-  extraHeaders: { "my-custom-header": "abcd" }
-});
+import socket from './socket';
 
 function Game() {
   const [step, setStep] = useState('menu');
@@ -28,6 +25,11 @@ function Game() {
   const [includeAI, setIncludeAI] = useState(false);
   const [playerSpeech, setPlayerSpeech] = useState('');
   const audioRef = useRef(null);
+  const [eventLog, setEventLog] = useState([]);
+
+  const addEvent = (message) => {
+    setEventLog((prevEvents) => [...prevEvents, message]);
+  };
 
   // New state variables
   const [currentPhase, setCurrentPhase] = useState('menu');
@@ -164,8 +166,13 @@ function Game() {
   }, [gameId, playerId]);
 
   const handlePlayerJoined = (data) => {
-    if (data.game_id === gameId) setPlayers(data.players);
+    if (data.game_id === gameId) {
+      setPlayers(data.players);
+      addEvent(`Player ${data.players[data.players.length - 1].name} has joined the game.`);
+    }
   };
+
+  
   useEffect(() => {
     const handlePlayerSpeech = (data) => {
       if (data.game_id === gameId) {

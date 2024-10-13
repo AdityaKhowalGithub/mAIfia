@@ -114,37 +114,72 @@ def start_night_phase(game_id):
     queue_speech(game_id, "Night Phase has Started", voice_id='Ruth')
     start_timer(game_id, 10)  # Start a 10-second timer for the night phase
 
+def proceed_to_next_speaker(game_id):
+    game = games[game_id]
+    if game['speaking_queue']:
+        print(game['speaking_queue'])
+        next_speaker_id = game['speaking_queue'].pop(0)
+        game['current_speaker'] = next_speaker_id
+        
+        # Notify clients about the current speaker
+        socketio.emit('current_speaker', {'game_id': game_id, 'player_id': next_speaker_id}, room=game_id)
+        socketio.emit('speaking_queue_updated', {'game_id': game_id, 'speaking_queue': game['speaking_queue']}, room=game_id)
+        
+        # Automatically move to the next speaker after a delay
+        Thread(target=lambda: time.sleep(10) or proceed_to_next_speaker(game_id)).start()
+        print(f"Proceeding to next speaker. Current queue: {game['speaking_queue']}")
+
+    else:
+        game['current_speaker'] = None
+        socketio.emit('current_speaker', {'game_id': game_id, 'player_id': None}, room=game_id)
+
+
+
 def start_day_phase(game_id):
     game = games[game_id]
     game['phase'] = 'day'
+    
+    # Initialize speaking queue with all alive players
+    game['speaking_queue'] = [p_id for p_id, p in game['players'].items() if p['alive']]
+    print(game['speaking_queue'])
+    game['current_speaker'] = None
+
+    # Notify clients
     socketio.emit('day_started', {'game_id': game_id}, room=game_id)
-    queue_speech(game_id, "Day Phase has Started", voice_id='Ruth')
+    socketio.emit('speaking_queue_updated', {'game_id': game_id, 'speaking_queue': game['speaking_queue']}, room=game_id)
+
+    # Start the speaking process
+    proceed_to_next_speaker(game_id)
 
 
-    # AI Player submits a vote
-    if game['include_ai']:
-        ai_player = next((p for p in game['players'].values() if p['name'] == 'AI player'), None)
-        if ai_player and ai_player['alive']:
-            target_player = next((p for p in game['players'].values() if p['alive'] and p['id'] != ai_player['id']), None)
+    # socketio.emit('day_started', {'game_id': game_id}, room=game_id)
+    # queue_speech(game_id, "Day Phase has Started", voice_id='Ruth')
+
+
+    # # AI Player submits a vote
+    # if game['include_ai']:
+    #     ai_player = next((p for p in game['players'].values() if p['name'] == 'AI player'), None)
+    #     if ai_player and ai_player['alive']:
+    #         target_player = next((p for p in game['players'].values() if p['alive'] and p['id'] != ai_player['id']), None)
             
-            # data = {
-            #     'game_id': game_id,
-            #     'player_id': ai_player['id'],
-            #     'text': generate_ai_speech(game_id)
-            # }
-            # requests.post("127.0.0.1:5000/submit_vote", json=data)
+    #         # data = {
+    #         #     'game_id': game_id,
+    #         #     'player_id': ai_player['id'],
+    #         #     'text': generate_ai_speech(game_id)
+    #         # }
+    #         # requests.post("127.0.0.1:5000/submit_vote", json=data)
             
-            ai_speech = generate_ai_speech(game_id)
-            #queue_speech(game_id, ai_speech)
-            queue_speech(game_id, ai_speech, voice_id='Matthew')
+    #         ai_speech = generate_ai_speech(game_id)
+    #         #queue_speech(game_id, ai_speech)
+    #         queue_speech(game_id, ai_speech, voice_id='Matthew')
 
-            # if target_player:
-                # game.setdefault('votes', {})
-                # game['votes'][ai_player['id']] = target_player['id']
-                # socketio.emit('vote_cast', {'game_id': game_id, 'voter_id': ai_player['id'], 
-                #                             'target_id': target_player['id']}, room=game_id)
+    #         # if target_player:
+    #             # game.setdefault('votes', {})
+    #             # game['votes'][ai_player['id']] = target_player['id']
+    #             # socketio.emit('vote_cast', {'game_id': game_id, 'voter_id': ai_player['id'], 
+    #             #                             'target_id': target_player['id']}, room=game_id)
 
-    start_timer(game_id, 30)  # Start a 30-second timer for the day phase
+    # start_timer(game_id, 30)  # Start a 30-second timer for the day phase
     
 def generate_ai_speech(game_id):
     def create_context(role, temperament):
@@ -320,7 +355,6 @@ def create_game():
 
     return jsonify({'game_id': game_id, 'player_id': player_id}), 200
 
-
 @app.route('/raise_hand', methods=['POST'])
 def raise_hand():
     data = request.get_json()
@@ -335,44 +369,38 @@ def raise_hand():
         return jsonify({'error': 'Game not found'}), 404
 
     # Check if player is already in the queue
-    if player_id not in game['speaking_queue']:
+    if player_id not in game['speaking_queue'] and game['current_speaker'] != player_id:
         game['speaking_queue'].append(player_id)
+        # Emit the updated speaking queue to all clients
+        socketio.emit('speaking_queue_updated', {'game_id': game_id, 'speaking_queue': game['speaking_queue']}, room=game_id)
+        return jsonify({'status': 'Hand raised'}), 200
+    else:
+        return jsonify({'status': 'Already in queue or currently speaking'}), 200
 
-    return jsonify({'status': 'Hand raised'}), 200
+
 
 @app.route('/done_speaking', methods=['POST'])
 def done_speaking():
     data = request.get_json()
     game_id = data.get('game_id')
+    player_id = data.get('player_id')
 
-    if not game_id:
-        return jsonify({'error': 'Game ID is required'}), 400
+    if not game_id or not player_id:
+        return jsonify({'error': 'Game ID and Player ID are required'}), 400
 
     game = games.get(game_id)
     if not game:
         return jsonify({'error': 'Game not found'}), 404
 
-    # Move to the next speaker
-    if game['speaking_queue']:
-        next_speaker_id = game['speaking_queue'].pop(0)
-        game['current_speaker'] = next_speaker_id
-
-        # Notify clients about the new current speaker
-        socketio.emit('current_speaker', {'game_id': game_id, 'player_id': next_speaker_id}, room=game_id)
-
-        # If the next speaker is the AI, generate its speech
-        if game['players'][next_speaker_id]['is_ai']:
-            ai_speech = generate_ai_speech(game_id)
-            # Process AI speech as needed (e.g., add to context, emit events)
-            queue_speech(game_id, ai_speech)
-            # Automatically mark AI as done speaking
-            socketio.emit('ai_done_speaking', {'game_id': game_id, 'player_id': next_speaker_id}, room=game_id)
-            # Move to the next speaker
-            done_speaking()
-    else:
-        game['current_speaker'] = None  # No one is speaking
-
+    # Proceed to next speaker
+    proceed_to_next_speaker(game_id)
     return jsonify({'status': 'Done speaking'}), 200
+
+       
+
+
+
+
 
 @app.route('/start_game', methods=['POST'])
 def start_game():

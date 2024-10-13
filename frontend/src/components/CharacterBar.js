@@ -4,13 +4,18 @@ import Character from './Character';
 import Recorder from './Recorder'; // Ensure Recorder is imported
 import '../CharacterBar.css';
 
+import socket from './socket';
+
+
 const CharacterBar = ({ role, players, gameId, playerId }) => {
   const [playerCharacter, setPlayerCharacter] = useState(() => {
     const index = players.findIndex((player) => player.id === playerId);
     return index !== -1 ? index : 0;
   });
-  const [votedCharacter, setVotedCharacter] = useState(null);
   const [speakingQueue, setSpeakingQueue] = useState([]);
+  const [currentSpeaker, setCurrentSpeaker] = useState(null);
+  const [startRecording, setStartRecording] = useState(false);
+  const [votedCharacter, setVotedCharacter] = useState(null);
   const [characters, setCharacters] = useState(() =>
     players.map((player, index) => ({
       id: player.id,
@@ -24,6 +29,21 @@ const CharacterBar = ({ role, players, gameId, playerId }) => {
     }))
   );
 
+  useEffect(() => {
+    setCharacters(
+      players.map((player, index) => ({
+        id: player.id,
+        sprite: `/character${index + 1}.png`,
+        voice: `voice${index + 1}.mp3`,
+        role: player.role,
+        isRealPlayer: player.id === playerId,
+        isDead: !player.alive,
+        isSpeaking: currentSpeaker === player.id,
+        isRaisingHand: speakingQueue.includes(player.id),
+      }))
+    );
+  }, [players, currentSpeaker, speakingQueue]);
+  
   const handleCharacterClick = async (id) => {
     if (id === playerId || characters.find((char) => char.id === id).isDead) return;
 
@@ -38,44 +58,54 @@ const CharacterBar = ({ role, players, gameId, playerId }) => {
       console.error('Error submitting vote:', error);
     }
   };
-
-  const handleRaiseHand = () => {
-    const playerChar = characters[playerCharacter];
-    if (!playerChar.isRaisingHand && !speakingQueue.includes(playerChar.id)) {
-      setSpeakingQueue([...speakingQueue, playerChar.id]);
-    } else {
-      setSpeakingQueue(speakingQueue.filter((id) => id !== playerChar.id));
+  const handleRecordingComplete = async () => {
+    try {
+      await axios.post('http://127.0.0.1:5000/done_speaking', {
+        game_id: gameId,
+        player_id: playerId,
+      });
+    } catch (error) {
+      console.error('Error notifying done speaking:', error);
     }
-    setCharacters((chars) =>
-      chars.map((char) =>
-        char.id === playerChar.id
-          ? { ...char, isRaisingHand: !char.isRaisingHand }
-          : char
-      )
-    );
   };
+  
+
+
+  const handleRaiseHand = async () => {
+    try {
+      await axios.post('http://127.0.0.1:5000/raise_hand', {
+        game_id: gameId,
+        player_id: playerId,
+      });
+    } catch (error) {
+      console.error('Error raising hand:', error);
+    }
+  };
+  
+
 
   useEffect(() => {
-    const speakingInterval = setInterval(() => {
-      if (speakingQueue.length > 0) {
-        const speakingCharacterId = speakingQueue[0];
-        setCharacters((chars) =>
-          chars.map((char) => ({
-            ...char,
-            isSpeaking: char.id === speakingCharacterId,
-            isRaisingHand: char.id === speakingCharacterId ? false : char.isRaisingHand,
-          }))
-        );
-        setSpeakingQueue((prevQueue) => prevQueue.slice(1));
-      } else {
-        setCharacters((chars) =>
-          chars.map((char) => ({ ...char, isSpeaking: false }))
-        );
+    const handleCurrentSpeaker = (data) => {
+      if (data.game_id === gameId) {
+        setCurrentSpeaker(data.player_id);
+        if (data.player_id === playerId) {
+          // Start recording automatically if it's the player's turn
+          setStartRecording(true);
+        } else {
+          // Stop recording if it's not the player's turn
+          setStartRecording(false);
+        }
       }
-    }, 5000);
-
-    return () => clearInterval(speakingInterval);
-  }, [speakingQueue]);
+    };
+  
+    socket.on('current_speaker', handleCurrentSpeaker);
+  
+    return () => {
+      socket.off('current_speaker', handleCurrentSpeaker);
+    };
+  }, [gameId, playerId]);
+  
+  
 
   const submitPlayerSpeech = () => {
     console.log('Player speech submitted');
@@ -107,11 +137,11 @@ const CharacterBar = ({ role, players, gameId, playerId }) => {
           <div className="player-indicator">
             <span>Playing as: </span>
             <img
-              src={characters[playerCharacter].sprite}
+              src={characters[playerCharacter]?.sprite}
               alt="Player Character"
               className="player-icon"
             />
-            <span>{characters[playerCharacter].role}</span>
+            <span>{characters[playerCharacter]?.role}</span>
           </div>
 
           <div className="button-container">
@@ -125,7 +155,7 @@ const CharacterBar = ({ role, players, gameId, playerId }) => {
               return (
                 <img
                   key={index}
-                  src={char.sprite}
+                  src={char?.sprite}
                   alt={`Character ${charId}`}
                   className="queue-icon"
                 />
@@ -134,22 +164,15 @@ const CharacterBar = ({ role, players, gameId, playerId }) => {
           </div>
         </div>
 
-        {/* Second Row: Submit Speech and Recorder */}
+        {/* Second Row: Recorder */}
         <div className="second-row" style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-          <button
-            onClick={submitPlayerSpeech}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#3498db',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer',
-            }}
-          >
-            Submit Speech
-          </button>
-          <Recorder gameId={gameId} playerId={playerId} />
+        <Recorder
+  gameId={gameId}
+  playerId={playerId}
+  startRecording={startRecording}
+  onRecordingComplete={handleRecordingComplete}
+/>
+
         </div>
       </div>
     </div>
