@@ -3,15 +3,17 @@
   width: 250px;
   height: 200px;
   position: relative;
+  cursor: pointer; /* Make it clickable */
 }
 
 .character-sprite {
   width: 100%;
   height: auto;
   border-radius: 50% 50% 45% 45%; /* Oval shape */
-  transition: transform 0.3s ease; /* Smooth transition */
+  transition: transform 0.3s ease, border 0.3s ease, filter 0.3s ease; /* Smooth transition for animations */
 }
 
+/* Speaking Animation */
 .speaking .character-sprite {
   animation: growAndRotateSideToSide 1.5s infinite;
 }
@@ -30,4 +32,22 @@
   75% {
     transform: scale(1.1) rotate(5deg); /* Slightly larger, rotate right */
   }
+}
+
+/* Selected State - Slightly larger with a border */
+.selected .character-sprite {
+  transform: scale(1.15); /* Grow when selected */
+  border: 3px solid #ffcc00; /* Add a border */
+}
+
+/* Dead State - Monochrome effect */
+.dead .character-sprite {
+  filter: grayscale(100%); /* Turn grayscale when dead */
+}
+
+.character-role {
+  text-align: center; /* Center the text */
+  font-size: 16px; /* Adjust font size as needed */
+  margin-top: 8px; /* Space between the sprite and the role text */
+  color: #333; /* Text color */
 }
