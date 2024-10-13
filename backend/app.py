@@ -14,7 +14,7 @@ winner = None
 
 # S3 bucket for storing audio files
 S3_BUCKET = 'bhavikbucket179'
-s3_client = boto3.client('s3', region_name='us-west-2')
+s3_client = boto3.client('s3', region_name='us-east-1')
 
 
 # Initialize AWS Polly client
@@ -22,7 +22,7 @@ polly_client = boto3.client('polly', region_name='us-east-1')
 moderator = boto3.client('polly', region_name='us-east-1')
 
 # Initialize AWS Transcribe client
-transcribe_client = boto3.client('transcribe', region_name='us-west-2')
+transcribe_client = boto3.client('transcribe', region_name='us-east-1')
 
 # Initialize AWS Bedrock client
 bedrock_client = boto3.client('bedrock-runtime', region_name='us-east-2')
@@ -34,22 +34,37 @@ games = {}
 speech_queue = Queue()
 speech_lock = Lock()
 def handle_user_voice(player_id):
+    # make player id a string
+    player_id = str(player_id)
+    
     # play on the frontend
-    socketio.emit("play_audio", {"player_id: player_id"})
+    print("emitting audio play\n\n")
+    socketio.emit("play_audio", {"player_id": player_id})
+    
+    job_name = uuid.uuid4().hex
     
     response = transcribe_client.start_transcription_job(
-        TranscriptionJobName="GameTranscription",
+        TranscriptionJobName=job_name,
         Media={'MediaFileUri': f"s3://{S3_BUCKET}/{player_id}.mp3"},
         MediaFormat='mp3',
-        LanguageCode='en-US'
+        LanguageCode='en-US',
     )
+
+    while True:
+        response = transcribe_client.get_transcription_job(TranscriptionJobName=job_name)
+        status = response['TranscriptionJob']['TranscriptionJobStatus']
+        
+        if status in ['COMPLETED', 'FAILED']:
+            break
+        
+        time.sleep(4)
     
     transcript_uri = response['TranscriptionJob']['Transcript']['TranscriptFileUri']
     transcript_response = requests.get(transcript_uri)
     transcript_data = transcript_response.json()
+    transcription = transcript_data['results']['transcripts'][0]['transcript']
     
-    print("Transcription result:", transcript_data['results']['transcripts'][0]['transcript'])
-    return response
+    return transcription
 
 def process_speech_queue():
     """Process speeches sequentially from the queue."""
@@ -112,22 +127,22 @@ def start_day_phase(game_id):
         if ai_player and ai_player['alive']:
             target_player = next((p for p in game['players'].values() if p['alive'] and p['id'] != ai_player['id']), None)
             
-            data = {
-                'game_id': game_id,
-                'player_id': ai_player['id'],
-                'text': generate_ai_speech(game_id)
-            }
-            requests.post("127.0.0.1:3000/submit_vote", json=data)
+            # data = {
+            #     'game_id': game_id,
+            #     'player_id': ai_player['id'],
+            #     'text': generate_ai_speech(game_id)
+            # }
+            # requests.post("127.0.0.1:5000/submit_vote", json=data)
             
             ai_speech = generate_ai_speech(game_id)
             #queue_speech(game_id, ai_speech)
             queue_speech(game_id, ai_speech, voice_id='Matthew')
 
-            if target_player:
-                game.setdefault('votes', {})
-                game['votes'][ai_player['id']] = target_player['id']
-                socketio.emit('vote_cast', {'game_id': game_id, 'voter_id': ai_player['id'], 
-                                            'target_id': target_player['id']}, room=game_id)
+            # if target_player:
+                # game.setdefault('votes', {})
+                # game['votes'][ai_player['id']] = target_player['id']
+                # socketio.emit('vote_cast', {'game_id': game_id, 'voter_id': ai_player['id'], 
+                #                             'target_id': target_player['id']}, room=game_id)
 
     start_timer(game_id, 30)  # Start a 30-second timer for the day phase
     
@@ -167,8 +182,9 @@ def generate_ai_speech(game_id):
     # Construct context with player speeches and roles
     context = create_context(ai_player['role'], 'cunning')
     for player in game['players'].values():
-        for speech in game['speeches'][player]:
-            context += f"{player['name']}: {speech}\n"
+        if player['id'] in game['speeches']:
+            for speech in game['speeches'][player['id']]:
+                context += f"{player['name']}: {speech}\n"
     context += "If the messages are empty, no one has spoken. Give a half sentence intro message."
     
     try:
@@ -491,8 +507,9 @@ def voice():
 # Endpoint to receive voice recordings from players
 @app.route('/upload_voice', methods=['POST'])
 def upload_voice():
-    game_id = request.form.get('game_id').to_string()
-    player_id = request.form.get('player_id').to_string()
+    game_id = request.form.get('game_id')
+    player_id = request.form.get('player_id')
+    print('ASKDFHLKAJSHEFLKJAHEFJKAHWLEJFHALKWJEFHAUWJEBF', player_id)
     file = request.files['file']
 
     if not game_id or not player_id or not file:
@@ -507,6 +524,8 @@ def upload_voice():
 
     #add to speeches
     game = games.get(game_id)
+    if player_id not in game['speeches']:
+        game['speeches'][player_id] = []
     game['speeches'][player_id].append(text)
     print(f"Player {player_id} speech: {text}")
 
