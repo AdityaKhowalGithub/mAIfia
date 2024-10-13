@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
-import uuid, random, io, boto3, time, json, re, string
+import uuid, random, io, boto3, time, json, re, string, requests
 from threading import Thread, Lock
 from queue import Queue
 from botocore.exceptions import ClientError
@@ -85,7 +85,14 @@ def start_day_phase(game_id):
         ai_player = next((p for p in game['players'].values() if p['name'] == 'AI player'), None)
         if ai_player and ai_player['alive']:
             target_player = next((p for p in game['players'].values() if p['alive'] and p['id'] != ai_player['id']), None)
-            submit_vote(game_id, ai_player['id'], target_player['id'])
+            
+            data = {
+                'game_id': game_id,
+                'player_id': ai_player['id'],
+                'text': generate_ai_speech(game_id)
+            }
+            requests.post(url, json=data)
+            
             ai_speech = generate_ai_speech(game_id)
             #queue_speech(game_id, ai_speech)
             queue_speech(game_id, ai_speech, voice_id='Matthew')
