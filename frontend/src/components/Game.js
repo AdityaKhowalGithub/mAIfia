@@ -4,67 +4,55 @@ import axios from 'axios';
 import Voting from './Voting';
 import Notes from './Notes';
 
-// Initialize the socket connection
 const socket = io('http://127.0.0.1:5000', {
   withCredentials: true,
-  extraHeaders: {
-    "my-custom-header": "abcd"
-  }
+  extraHeaders: { "my-custom-header": "abcd" }
 });
 
 function Game() {
-  const [step, setStep] = useState('menu'); // 'menu', 'lobby', 'day', 'night', etc.
+  const [step, setStep] = useState('menu');
   const [gameId, setGameId] = useState('');
   const [playerId, setPlayerId] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [role, setRole] = useState('');
   const [players, setPlayers] = useState([]);
-  const [targetId, setTargetId] = useState(''); // State for target player
+  const [targetId, setTargetId] = useState('');
   const [timer, setTimer] = useState(0);
-  const [includeAI, setIncludeAI] = useState(false); // New state to include AI player
+  const [includeAI, setIncludeAI] = useState(false);
 
   useEffect(() => {
     if (step === 'day') setTimer(30);
-    else if (step === 'night') setTimer(10);
+    if (step === 'night') setTimer(10);
   }, [step]);
 
   useEffect(() => {
     let interval = null;
     if (timer > 0) {
-      interval = setInterval(() => setTimer((prevTimer) => prevTimer - 1), 1000);
+      interval = setInterval(() => setTimer((prev) => prev - 1), 1000);
     } else if (timer === 0) {
       handleTimerEnd();
     }
     return () => clearInterval(interval);
-  }, [timer, step, players, gameId, playerId]);
+  }, [timer]);
 
   const handleTimerEnd = () => {
-    if (step === 'day') {
-      // Players should have submitted votes via the UI
-      setStep('night');
-    } else if (step === 'night') {
-      // Mafia should have performed action
-      setStep('day');
-    }
+    if (step === 'day') setStep('night');
+    if (step === 'night') setStep('day');
   };
 
-  // Function to play synthesized speech
   const playSpeech = async (text) => {
     try {
       const response = await axios.post('http://127.0.0.1:5000/voice', { text }, { responseType: 'blob' });
       const audioUrl = URL.createObjectURL(response.data);
-      const audio = new Audio(audioUrl);
-      audio.play();
+      new Audio(audioUrl).play();
     } catch (error) {
       console.error('Error playing speech:', error);
     }
   };
 
-  // Handle night started event
   useEffect(() => {
     socket.on('night_started', (data) => {
       if (data.game_id === gameId) {
-        alert('Night phase has started.');
         playSpeech('Night phase has started.');
         setStep('night');
       }
@@ -72,11 +60,9 @@ function Game() {
     return () => socket.off('night_started');
   }, [gameId]);
 
-  // Handle day started event
   useEffect(() => {
     socket.on('day_started', (data) => {
       if (data.game_id === gameId) {
-        alert('Day phase has started.');
         playSpeech('Day phase has started.');
         setStep('day');
       }
@@ -94,20 +80,16 @@ function Game() {
     const handlePlayerEliminated = (data) => {
       if (data.game_id === gameId) {
         const eliminatedPlayer = players.find(player => player.id === data.player_id);
-        const message = `Player ${eliminatedPlayer.name} has been eliminated.`;
-        alert(message);
-        playSpeech(message);
-        setPlayers((prevPlayers) => prevPlayers.map((player) => 
-          player.id === data.player_id ? { ...player, alive: false } : player
-        ));
+        playSpeech(`Player ${eliminatedPlayer.name} has been eliminated.`);
+        setPlayers((prev) =>
+          prev.map((player) => player.id === data.player_id ? { ...player, alive: false } : player)
+        );
       }
     };
 
     const handleGameOver = (data) => {
       if (data.game_id === gameId) {
-        const message = `${data.winner} have won the game!`;
-        alert(message);
-        playSpeech(message);
+        playSpeech(`${data.winner} have won the game!`);
         setStep('game_over');
       }
     };
@@ -140,11 +122,8 @@ function Game() {
     }
   }, [gameId, playerId]);
 
-
   const handlePlayerJoined = (data) => {
-    if (data.game_id === gameId) {
-      setPlayers(data.players);
-    }
+    if (data.game_id === gameId) setPlayers(data.players);
   };
 
   useEffect(() => {
@@ -157,7 +136,7 @@ function Game() {
       }
     });
     return () => socket.off('game_started');
-  }, [gameId, playerId]);
+  }, [gameId]);
 
   const fetchRole = async () => {
     try {
@@ -170,7 +149,7 @@ function Game() {
 
   const submitMafiaAction = async () => {
     try {
-      socket.emit('mafia_action', { game_id: gameId, player_id: playerId, target_id: targetId });
+      socket.emit('mafia_action', { game_id: gameId, player_id: playerId, target_id: 'fix this later' });
     } catch (error) {
       console.error('Error submitting Mafia action:', error);
     }
@@ -269,38 +248,29 @@ function Game() {
       )}
       {step !== 'menu' && step !== 'lobby' && (
         <div>
-          {/* Day or Night */}
           <h2>{step.charAt(0).toUpperCase() + step.slice(1)}</h2>
           <h3>Your Role: {role}</h3>
           <h3>Time Remaining: {timer} seconds</h3>
-          <h3>Players:</h3>
-          <ul style={{ listStyleType: 'none', margin: 0, padding: 0 }}>
-            {players.map((player) => (
-              <li key={player.id}>
-                {player.name} {player.alive ? '' : '(eliminated)'} {player.is_ai ? '(AI)' : ''}
-              </li>
-            ))}
-          </ul>
-          {step === 'night' && role === 'Mafia' && (
-            <div>
-              <h3>Select a target to eliminate:</h3>
-              <select onChange={(e) => setTargetId(e.target.value)}>
-                <option value="">Select player</option>
-                {players.filter((player) => player.alive && player.id !== playerId && !player.is_ai).map((player) => (
-                  <option key={player.id} value={player.id}>{player.name}</option>
-                ))}
-              </select>
-              <button onClick={submitMafiaAction} disabled={!targetId}>Submit Mafia Action</button>
-            </div>
-          )}
           {step === 'day' && (
             <Voting
-              players={players}
-              gameId={gameId}
-              playerId={playerId}
-              setTargetId={setTargetId}
-              submitVote={submitVote}
+              players = {players}
+              gameId = {gameId}
+              playerId = {playerId}
             />
+          )}
+          {step === 'night' && role === 'mafia' && (
+            <div>
+              <h3>Select a player to eliminate</h3>
+              {players.filter((player) => player.alive).map((player) => (
+                <button
+                  key={player.id}
+                  onClick={() => setTargetId(player.id)}
+                >
+                  {player.name}
+                </button>
+              ))}
+              <button onClick={submitMafiaAction}>Submit Mafia Action</button>
+            </div>
           )}
           <Notes />
         </div>
