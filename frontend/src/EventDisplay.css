@@ -4,7 +4,7 @@
   overflow-y: auto; /* Enable vertical scrolling */
   border: 1px solid rgba(255, 255, 255, 0.2); /* Light border for the glass effect */
   padding: 10px;
-  background: rgba(255, 255, 255, 0.1); /* Semi-transparent white background */
+  background: rgba(255, 255, 255, 0.4); /* Semi-transparent white background */
   backdrop-filter: blur(10px); /* Apply blur effect for the glassy look */
   color: black; /* Set text color to black */
   font-family: "Courier New", Courier, monospace; /* Use a monospace font */

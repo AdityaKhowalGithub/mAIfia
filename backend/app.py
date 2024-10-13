@@ -150,6 +150,7 @@ def start_day_phase(game_id):
 
     # Start the speaking process
     proceed_to_next_speaker(game_id)
+    
 
 
     # socketio.emit('day_started', {'game_id': game_id}, room=game_id)
@@ -179,7 +180,7 @@ def start_day_phase(game_id):
     #             # socketio.emit('vote_cast', {'game_id': game_id, 'voter_id': ai_player['id'], 
     #             #                             'target_id': target_player['id']}, room=game_id)
 
-    # start_timer(game_id, 30)  # Start a 30-second timer for the day phase
+    start_timer(game_id, 300)  # Start a 30-second timer for the day phase
     
 def generate_ai_speech(game_id):
     def create_context(role, temperament):
