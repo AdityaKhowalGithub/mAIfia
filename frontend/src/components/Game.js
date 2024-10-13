@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import axios from 'axios';
 import Voting from './Voting';
 import Notes from './Notes';
 import TitlePage from "./TitlePage";
+import Recorder from "./Recorder";
 import "../App.css";
 
 const socket = io('http://127.0.0.1:5000', {
@@ -23,8 +24,6 @@ function Game() {
   const [includeAI, setIncludeAI] = useState(false);
   const [playerSpeech, setPlayerSpeech] = useState('');
   const audioRef = useRef(null);
-  
-
 
   useEffect(() => {
     socket.on('timer_update', (data) => {
@@ -58,9 +57,8 @@ function Game() {
     });
 
     socket.on('play_audio', (data)=>{
-      if (data.game_id === gameId){
-        playAudio(data.audio_link);
-      }
+      console.log("playing audio with: " + data.player_id);
+      playAudio("https://bhavikbucket179.s3.amazonaws.com/" + data.player_id + ".mp3");
     });
   
     return () => {
@@ -377,6 +375,7 @@ function Game() {
               }}>
               Submit Speech
             </button>
+              <Recorder gameId={gameId} playerId={playerId} />
           </div>
         </>
       )}
