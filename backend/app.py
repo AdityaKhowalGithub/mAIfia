@@ -9,6 +9,7 @@ from threading import Thread
 app = Flask(__name__)
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+winner = None
 
 # Initialize AWS Polly client
 polly_client = boto3.client('polly', region_name='us-east-1')  # Replace with your AWS region
@@ -31,9 +32,11 @@ def timer_thread(game_id, duration):
 
     # Handle phase transitions when the timer reaches 0
     if game['phase'] == 'day':
+        check_win_conditions(game_id)
         start_night_phase(game_id)
     else:
         check_win_conditions(game_id)
+        start_day_phase(game_id)
 
 def start_timer(game_id, duration):
     thread = Thread(target=timer_thread, args=(game_id, duration))
@@ -63,6 +66,9 @@ def assign_roles(game):
         player['role'] = roles[i] if i < len(roles) else 'Civilian'
 
 def check_win_conditions(game_id):
+    global winner
+    if winner: 
+        return # Game already ended
     game = games[game_id]
     players_list = game['players'].values()
     mafia_alive = any(p['role'] == 'Mafia' and p['alive'] for p in players_list)
@@ -71,9 +77,8 @@ def check_win_conditions(game_id):
     if not mafia_alive or not civilians_alive:
         winner = 'Civilians' if not mafia_alive else 'Mafia'
         game['status'] = 'ended'
+        socketio.emit('play_speech', {'game_id': game_id, 'text': f"The game has ended. The {winner} have won!"}, room=game_id)
         socketio.emit('game_over', {'game_id': game_id, 'winner': winner}, room=game_id)
-    else:
-        start_night_phase(game_id)
 
 def eliminate_player(game_id):
     game = games[game_id]
@@ -92,10 +97,14 @@ def eliminate_player(game_id):
     game['players'][eliminated_player_id]['alive'] = False
 
     socketio.emit('player_eliminated', {'game_id': game_id, 'player_id': eliminated_player_id}, room=game_id)
-    
-    #socketio.emit('play_speech', {'game_id': game_id, 'text': "Player has been elimated"}, room=game_id)
+
     game['votes'] = {}
     check_win_conditions(game_id)
+    
+    global winner
+    if not winner:
+        socketio.emit('play_speech', {'game_id': game_id, 'text': f"Player {game['players'][eliminated_player_id]['name']} has been eliminated"}, room=game_id)
+    
 
 # API Routes
 @app.route('/get_players', methods=['GET'])

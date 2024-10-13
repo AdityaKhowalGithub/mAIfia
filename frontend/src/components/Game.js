@@ -36,14 +36,12 @@ function Game() {
   useEffect(() => {
     socket.on('night_started', (data) => {
       if (data.game_id === gameId) {
-        //playSpeech('Night phase has started.');
         setStep('night');
       }
     });
 
     socket.on('day_started', (data) => {
       if (data.game_id === gameId) {
-        //playSpeech('Day phase has started.');
         setStep('day');
       }
     });
@@ -83,7 +81,6 @@ function Game() {
     const handlePlayerEliminated = (data) => {
       if (data.game_id === gameId) {
         const eliminatedPlayer = players.find(player => player.id === data.player_id);
-        // playSpeech(`Player ${eliminatedPlayer.name} has been eliminated.`);
         setPlayers((prev) =>
           prev.map((player) => player.id === data.player_id ? { ...player, alive: false } : player)
         );
@@ -92,8 +89,8 @@ function Game() {
 
     const handleGameOver = (data) => {
       if (data.game_id === gameId) {
-        // playSpeech(`${data.winner} have won the game!`);
         alert(`${data.winner} have won the game!`);
+        socket.disconnect();
         setStep('game_over');
       }
     };
@@ -139,7 +136,6 @@ function Game() {
         await fetchRole();
 
         setStep('day');
-        //playSpeech('The game has started. It is now daytime.');
       }
     });
     return () => socket.off('game_started');
@@ -191,14 +187,6 @@ function Game() {
     } catch (error) {
       console.error('Error starting game:', error);
     }
-  };
-
-  const submitVote = (targetId) => {
-    socket.emit('submit_vote', {
-      game_id: gameId,
-      player_id: playerId,
-      target_id: targetId,
-    });
   };
 
   return (
