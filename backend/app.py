@@ -2,6 +2,9 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import uuid, random, io, boto3
+import time
+from threading import Thread
+
 
 app = Flask(__name__)
 CORS(app)
@@ -17,6 +20,39 @@ bedrock_client = boto3.client('bedrock', region_name='us-east-1')  # Replace wit
 players = {}
 games = {}
 
+
+# Modify these functions to manage the phase based on the backend timer.
+def timer_thread(game_id, duration):
+    game = games[game_id]
+    while duration > 0 and game['status'] == 'in_progress':
+        socketio.emit('timer_update', {'game_id': game_id, 'time': duration}, room=game_id)
+        time.sleep(1)
+        duration -= 1
+
+    # Handle phase transitions when the timer reaches 0
+    if game['phase'] == 'day':
+        start_night_phase(game_id)
+    else:
+        check_win_conditions(game_id)
+
+def start_timer(game_id, duration):
+    thread = Thread(target=timer_thread, args=(game_id, duration))
+    thread.start()
+
+def start_night_phase(game_id):
+    game = games[game_id]
+    game['phase'] = 'night'
+    socketio.emit('night_started', {'game_id': game_id}, room=game_id)
+    socketio.emit('play_speech', {'game_id': game_id, 'text': "Night Phase has Started"}, room=game_id)
+    start_timer(game_id, 10)  # Start a 10-second timer for the night phase
+
+def start_day_phase(game_id):
+    game = games[game_id]
+    game['phase'] = 'day'
+    socketio.emit('day_started', {'game_id': game_id}, room=game_id)
+    socketio.emit('play_speech', {'game_id': game_id, 'text': "Day Phase has Started"}, room=game_id)
+    start_timer(game_id, 30)  # Start a 30-second timer for the day phase
+
 # Helper functions
 def assign_roles(game):
     roles = ['Mafia', 'Detective', 'Doctor', 'Mayor']
@@ -26,16 +62,6 @@ def assign_roles(game):
     for i, player in enumerate(players_list):
         player['role'] = roles[i] if i < len(roles) else 'Civilian'
 
-def start_night_phase(game_id):
-    game = games[game_id]
-    game['phase'] = 'night'
-    socketio.emit('night_started', {'game_id': game_id}, room=game_id)
-    
-def start_day_phase(game_id):
-    game = games[game_id]
-    game['phase'] = 'day'
-    socketio.emit('day_started', {'game_id': game_id}, room=game_id)
-    
 def check_win_conditions(game_id):
     game = games[game_id]
     players_list = game['players'].values()
@@ -66,6 +92,8 @@ def eliminate_player(game_id):
     game['players'][eliminated_player_id]['alive'] = False
 
     socketio.emit('player_eliminated', {'game_id': game_id, 'player_id': eliminated_player_id}, room=game_id)
+    
+    #socketio.emit('play_speech', {'game_id': game_id, 'text': "Player has been elimated"}, room=game_id)
     game['votes'] = {}
     check_win_conditions(game_id)
 
@@ -140,6 +168,8 @@ def start_game():
     assign_roles(game)
     game['status'] = 'in_progress'
     socketio.emit('game_started', {'game_id': game_id, 'players': list(game['players'].values())}, room=game_id)
+    print('starting day phase')
+    start_day_phase(game_id)
     return jsonify({'status': 'Game started'}), 200
 
 @app.route('/get_role', methods=['GET'])

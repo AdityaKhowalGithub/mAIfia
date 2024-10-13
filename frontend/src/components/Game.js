@@ -20,31 +20,51 @@ function Game() {
   const [timer, setTimer] = useState(0);
   const [includeAI, setIncludeAI] = useState(false);
 
-  useEffect(() => {
-    if (step === 'day') setTimer(30);
-    if (step === 'night') setTimer(10);
-  }, [step]);
 
   useEffect(() => {
-    let interval = null;
-    if (timer > 0) {
-      interval = setInterval(() => setTimer((prev) => prev - 1), 1000);
-    } else if (timer === 0) {
-      handleTimerEnd();
-    }
-    return () => clearInterval(interval);
-  }, [timer]);
+    socket.on('timer_update', (data) => {
+      if (data.game_id === gameId) {
+        setTimer(data.time);
+      }
+    });
 
-  const handleTimerEnd = () => {
-    // contact the /
-    if (step === 'day') setStep('night');
-    if (step === 'night') setStep('day');
-  };
+    return () => {
+      socket.off('timer_update');
+    };
+  }, [gameId]);
+
+  useEffect(() => {
+    socket.on('night_started', (data) => {
+      if (data.game_id === gameId) {
+        //playSpeech('Night phase has started.');
+        setStep('night');
+      }
+    });
+
+    socket.on('day_started', (data) => {
+      if (data.game_id === gameId) {
+        //playSpeech('Day phase has started.');
+        setStep('day');
+      }
+    });
+
+    socket.on('play_speech', (data)=>{
+      if (data.game_id === gameId){
+        playSpeech(data.text);
+      }
+    });
+
+    return () => {
+      socket.off('night_started');
+      socket.off('day_started');
+    };
+  }, [gameId]);
 
   const playSpeech = async (text) => {
     try {
       alert('trying to play speech');
       const response = await axios.post('http://127.0.0.1:5000/voice', { text }, { responseType: 'blob' });
+      console.log("penis")
       console.log(response.data);
       const audioUrl = URL.createObjectURL(response.data);
       new Audio(audioUrl).play();
@@ -52,26 +72,6 @@ function Game() {
       console.error('Error playing speech:', error);
     }
   };
-
-  useEffect(() => {
-    socket.on('night_started', (data) => {
-      if (data.game_id === gameId) {
-        playSpeech('Night phase has started.');
-        setStep('night');
-      }
-    });
-    return () => socket.off('night_started');
-  }, [gameId]);
-
-  useEffect(() => {
-    socket.on('day_started', (data) => {
-      if (data.game_id === gameId) {
-        playSpeech('Day phase has started.');
-        setStep('day');
-      }
-    });
-    return () => socket.off('day_started');
-  }, [gameId]);
 
   useEffect(() => {
     const handleVoteCast = (data) => {
@@ -83,7 +83,7 @@ function Game() {
     const handlePlayerEliminated = (data) => {
       if (data.game_id === gameId) {
         const eliminatedPlayer = players.find(player => player.id === data.player_id);
-        playSpeech(`Player ${eliminatedPlayer.name} has been eliminated.`);
+        // playSpeech(`Player ${eliminatedPlayer.name} has been eliminated.`);
         setPlayers((prev) =>
           prev.map((player) => player.id === data.player_id ? { ...player, alive: false } : player)
         );
@@ -92,7 +92,7 @@ function Game() {
 
     const handleGameOver = (data) => {
       if (data.game_id === gameId) {
-        playSpeech(`${data.winner} have won the game!`);
+        // playSpeech(`${data.winner} have won the game!`);
         alert(`${data.winner} have won the game!`);
         setStep('game_over');
       }
@@ -139,7 +139,7 @@ function Game() {
         await fetchRole();
 
         setStep('day');
-        playSpeech('The game has started. It is now daytime.');
+        //playSpeech('The game has started. It is now daytime.');
       }
     });
     return () => socket.off('game_started');
