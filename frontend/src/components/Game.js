@@ -62,7 +62,6 @@ function Game() {
 
   const playSpeech = async (text, voice) => {
     try {
-      
       const response = await axios.post('http://127.0.0.1:5000/voice', { text, voice }, { responseType: 'blob' });
       console.log(response.data);
       const audioUrl = URL.createObjectURL(response.data);

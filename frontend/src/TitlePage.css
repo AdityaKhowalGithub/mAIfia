@@ -1,0 +1,45 @@
+/* TitlePage.css */
+
+html,
+body {
+  height: 100%; /* Ensure full height for the viewport */
+  margin: 0; /* Remove default margin */
+  padding: 0; /* Remove default padding */
+}
+
+.title-page {
+  display: flex;
+  flex-direction: column; /* Arrange content vertically */
+  justify-content: center;
+  align-items: center;
+  width: 100vw; /* Full width of the viewport */
+  height: 100vh; /* Full height of the viewport */
+  background-color: black; /* Background color */
+  color: white; /* Text color */
+  font-family: "Courier New", Courier, monospace; /* Monospaced font */
+  transition: background-color 0.5s ease; /* Smooth transition for background changes */
+}
+
+.typing-text {
+  font-size: 4rem; /* Adjust the font size as needed */
+  white-space: nowrap; /* Prevent text wrapping */
+}
+
+.role-description {
+  font-size: 1.5rem; /* Smaller text for role description */
+  color: white; /* Default color for descriptions */
+  margin-top: 1rem; /* Space between the role text and description */
+}
+
+/* Optional phase styles */
+.title-page.day-phase {
+  background-color: lightyellow; /* Background for Day Phase */
+}
+
+.title-page.night-phase {
+  background-color: darkblue; /* Background for Night Phase */
+}
+
+.title-page.role-selection {
+  background-color: lightgreen; /* Background for Role Selection */
+}

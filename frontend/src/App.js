@@ -1,14 +1,15 @@
-import React from 'react';
-import Game from './components/Game';
-import './App.css';
+import React from "react";
+import "./App.css";
+import GameDisplay from "./components/GameDisplay";
+import Game from "./components/Game";
+import TitlePage from "./components/TitlePage";
 
 function App() {
   return (
     <div className="App">
-      <Game />
+      <GameDisplay />
     </div>
   );
 }
 
 export default App;
-

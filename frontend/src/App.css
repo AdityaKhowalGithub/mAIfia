@@ -1,9 +1,21 @@
 .App {
   font-family: Arial, sans-serif;
   text-align: center;
+  background-image: url("../public/background.jpeg"); /* Path to your background image */
+  background-size: cover; /* Cover the entire background */
+  background-position: center; /* Center the background image */
+  background-repeat: no-repeat; /* Prevent the background from repeating */
+  height: 100vh; /* Full viewport height */
+  overflow: hidden; /* Prevent scrolling */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white; /* Text color for better visibility */
 }
 
-h1, h2 {
+h1,
+h2 {
   color: #333;
 }
 
@@ -18,3 +30,9 @@ textarea {
   font-size: 16px;
 }
 
+body,
+html {
+  margin: 0;
+  height: 100%;
+  overflow: hidden; /* Prevent scrolling on body */
+}

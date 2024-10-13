@@ -1,0 +1,20 @@
+.phase-tracker-container {
+  width: 85%; /* Set the width to 85% of the screen */
+  max-width: 1200px; /* Optional: Set a maximum width for larger screens */
+
+  background: rgba(255, 255, 255, 0.1); /* Semi-transparent white background */
+  backdrop-filter: blur(10px); /* Frosted glass effect */
+  border-radius: 15px; /* Rounded corners */
+  padding: 10px; /* Add some padding */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Optional: Add a subtle shadow */
+}
+
+.phase-tracker-container span {
+  font-family: "Courier New", Courier, monospace; /* Monospaced font */
+  color: #333; /* Text color (can be adjusted if needed) */
+}
+
+.phase-tracker-container .ant-steps-item-process .ant-steps-icon,
+.phase-tracker-container .ant-steps-item-finish .ant-steps-icon {
+  background-color: #90ee90; /* Light green for the dots */
+}

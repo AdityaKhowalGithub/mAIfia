@@ -1,0 +1,37 @@
+.event-display {
+  width: 50rem; /* Set a fixed width */
+  height: 400px; /* Set a fixed height */
+  overflow-y: auto; /* Enable vertical scrolling */
+  border: 1px solid rgba(255, 255, 255, 0.2); /* Light border for the glass effect */
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.1); /* Semi-transparent white background */
+  backdrop-filter: blur(10px); /* Apply blur effect for the glassy look */
+  color: black; /* Set text color to black */
+  font-family: "Courier New", Courier, monospace; /* Use a monospace font */
+  text-align: left; /* Left-align the text */
+  border-radius: 10px; /* Round the edges */
+  box-shadow: 0 4px 5px rgba(0, 0, 0, 0.5); /* Add shadow behind the display */
+}
+
+.event {
+  margin-bottom: 5px;
+  padding: 5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3); /* Lighter border for events */
+  word-wrap: break-word; /* Wrap long words to fit the width */
+}
+
+/* Title styles */
+.event-title {
+  border-radius: 10px; /* Round the edges */
+  width: 50rem; /* Set a fixed width */
+  box-shadow: 0 4px 5px rgba(0, 0, 0, 0.5); /* Add shadow behind the display */
+  text-align: left; /* Left-align the text */
+  font-size: 32px; /* Increase font size */
+  font-weight: bold; /* Make text bold */
+  color: black; /* Set title color to white */
+  font-family: "Courier New", Courier, monospace; /* Use a monospace font */
+  margin-bottom: 5px; /* Add space below the title */
+  backdrop-filter: blur(10px); /* Apply blur effect for title */
+  padding: 10px; /* Add padding to the title */
+  border-radius: 10px; /* Round the edges of the title */
+}
