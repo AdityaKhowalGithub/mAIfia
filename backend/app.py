@@ -16,7 +16,7 @@ winner = None
 polly_client = boto3.client('polly', region_name='us-east-1')
 
 # Initialize AWS Bedrock client
-bedrock_client = boto3.client('bedrock-runtime', region_name='us-east-1')
+bedrock_client = boto3.client('bedrock-runtime', region_name='us-east-2')
 
 # In-memory storage for players and games (for development purposes)
 players = {}
@@ -95,68 +95,111 @@ def start_day_phase(game_id):
                                             'target_id': target_player['id']}, room=game_id)
 
     start_timer(game_id, 30)  # Start a 30-second timer for the day phase
-
 def generate_ai_speech(game_id):
     def create_context(role, temperament):
         context_prompt = (
             f"You are an AI that acts as a {role}. "
             f"Your demeanor is {temperament}. "
             f"Engage in the conversation by providing insights, answering questions, and "
-            f"interacting with the user in a manner that reflects your role and temperament."
-            f"the game state is as follows:"
+            f"interacting with the user in a manner that reflects your role and temperament. "
+            f"The game state is as follows:\n"
         )
         return context_prompt
-    
-    game = games[game_id]
 
+    game = games[game_id]
     ai_player = next((p for p in game['players'].values() if p['is_ai']), None)
 
-    # default context prompt for AI speech given its role and the current game state
+    # Construct context with player speeches and roles
     context = create_context(ai_player['role'], 'sexually aggressive')
     for player in game['players'].values():
         context += f"{player['name']}: {game['speeches'].get(player['id'], '')}\n"
     context += "Now, construct a response to the following prompt in one to two sentences:"
 
-    model_id = "us.anthropic.claude-3-haiku-20240307-v1:0"
-
-    body = json.dumps({
-        "prompt": context,
-        "max_tokens_to_sample": 100,
-        "temperature": 0.1,
-        "top_p": 0.9,
-    })
-    accept = "application/json"
-    contentType = "application/json"
-
-    response_text = ""
     try:
-        # Send the message to the model, using a basic inference configuration.
-        response = bedrock_client.invoke_model(
+        # Make a call to Bedrock using the `converse` method
+        response = bedrock_client.converse(
             modelId="us.anthropic.claude-3-haiku-20240307-v1:0",
-            body = body,
-            accept = accept,
-            contentType = contentType,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [{'text' : context}]
+                }
+            ],
+            inferenceConfig={"maxTokens": 1000, "temperature": 1},
+            additionalModelRequestFields={"top_k": 250}
         )
-        # response = bedrock_client.converse(
-        #     modelId = model_id,
-        #     messages =  [
-        #             {
-        #                 "role": "user",
-        #                 "content": context
-        #             }
-        #     ],
-        #     inferenceConfig={"maxTokens":4069, "temperature": 0.1},
-        #     additionalModelRequestFields={"top_k": 250}
-        # )
 
-        # Extract and print the response text.
-        # response_text = response["output"]["message"]["content"][0]["text"]
-        # response_text = json.loads(response.get("body").read())
+        # Extract response text
+        response_text = response.get('message', {}).get('content', '')
+        print(f"AI Player response: {response_text}")
+        return response_text
+
     except (ClientError, Exception) as e:
-        print(f"ERROR: Can't invoke '{model_id}'. Reason: {e}")
+        print(f"ERROR: Can't converse with model. Reason: {e}")
+        return "Sorry, an error occurred."
 
-    print(f"AI Player response: {response_text}")
-    return response_text
+
+# def generate_ai_speech(game_id):
+#     def create_context(role, temperament):
+#         context_prompt = (
+#             f"You are an AI that acts as a {role}. "
+#             f"Your demeanor is {temperament}. "
+#             f"Engage in the conversation by providing insights, answering questions, and "
+#             f"interacting with the user in a manner that reflects your role and temperament."
+#             f"the game state is as follows:"
+#         )
+#         return context_prompt
+    
+#     game = games[game_id]
+
+#     ai_player = next((p for p in game['players'].values() if p['is_ai']), None)
+
+#     # default context prompt for AI speech given its role and the current game state
+#     context = create_context(ai_player['role'], 'sexually aggressive')
+#     for player in game['players'].values():
+#         context += f"{player['name']}: {game['speeches'].get(player['id'], '')}\n"
+#     context += "Now, construct a response to the following prompt in one to two sentences:"
+
+#     model_id = "us.anthropic.claude-3-haiku-20240307-v1:0"
+
+#     body = json.dumps({
+#         "prompt": context,
+#         "max_tokens_to_sample": 100,
+#         "temperature": 0.1,
+#         "top_p": 0.9,
+#     })
+#     accept = "application/json"
+#     contentType = "application/json"
+
+#     response_text = ""
+#     try:
+#         # Send the message to the model, using a basic inference configuration.
+#         response = bedrock_client.invoke_model(
+#             modelId="us.anthropic.claude-3-haiku-20240307-v1:0",
+#             body = body,
+#             accept = accept,
+#             contentType = contentType,
+#         )
+#         # response = bedrock_client.converse(
+#         #     modelId = model_id,
+#         #     messages =  [
+#         #             {
+#         #                 "role": "user",
+#         #                 "content": context
+#         #             }
+#         #     ],
+#         #     inferenceConfig={"maxTokens":4069, "temperature": 0.1},
+#         #     additionalModelRequestFields={"top_k": 250}
+#         # )
+
+#         # Extract and print the response text.
+#         # response_text = response["output"]["message"]["content"][0]["text"]
+#         # response_text = json.loads(response.get("body").read())
+#     except (ClientError, Exception) as e:
+#         print(f"ERROR: Can't invoke '{model_id}'. Reason: {e}")
+
+#     print(f"AI Player response: {response_text}")
+#     return response_text
 
 
 # Helper functions
