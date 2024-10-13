@@ -20,6 +20,7 @@ function Game() {
   const [timer, setTimer] = useState(0);
   const [includeAI, setIncludeAI] = useState(false);
   const [playerSpeech, setPlayerSpeech] = useState('');
+  
 
 
   useEffect(() => {
@@ -61,7 +62,7 @@ function Game() {
 
   const playSpeech = async (text) => {
     try {
-      alert('trying to play speech');
+      
       const response = await axios.post('http://127.0.0.1:5000/voice', { text }, { responseType: 'blob' });
       console.log("penis")
       console.log(response.data);
