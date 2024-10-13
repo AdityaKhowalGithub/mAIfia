@@ -98,10 +98,10 @@ def start_day_phase(game_id):
 def generate_ai_speech(game_id):
     def create_context(role, temperament):
         context_prompt = (
-            f"You are an AI that acts as a {role}. "
+            f"Answer with natural speech, you are being directly fed into a text-to-speech model. You are an AI that is playing the game mafia and have the role of a {role}. "
             f"Your demeanor is {temperament}. "
             f"Engage in the conversation by providing insights, answering questions, and "
-            f"interacting with the user in a manner that reflects your role and temperament. "
+            f"interacting with the user in a manner that reflects your role and temperament. Your intention is to win, do not reveal your role unless it helps you win. Be strategic."
             f"The game state is as follows:\n"
         )
         return context_prompt
@@ -110,10 +110,10 @@ def generate_ai_speech(game_id):
     ai_player = next((p for p in game['players'].values() if p['is_ai']), None)
 
     # Construct context with player speeches and roles
-    context = create_context(ai_player['role'], 'sexually aggressive')
+    context = create_context(ai_player['role'], 'cunning')
     for player in game['players'].values():
         context += f"{player['name']}: {game['speeches'].get(player['id'], '')}\n"
-    context += "Now, construct a response to the following prompt in one to two sentences:"
+    context += "Make your response concise, it is a conversation. One sentence max."
 
     try:
         # Make a call to Bedrock using the `converse` method
@@ -131,7 +131,8 @@ def generate_ai_speech(game_id):
 
         # Extract response text
         print(response)
-        response_text = response.get('message', {}).get('content', '')
+        response_text = response['output']['message']['content'][0]['text']
+        #response_text = response.get('message', {}).get('content', '')
         print(f"AI Player response: {response_text}")
         return response_text
 
@@ -407,17 +408,23 @@ def handle_join_room(data):
 def voice():
     data = request.get_json()
     text = data.get('text')
-    voice_id = data.get('voice_id', 'Joanna')  # Default voice
+    voice_id = data.get('voice_id', 'Ruth')  # Default voice
 
     if not text:
         return jsonify({'error': 'Text is required'}), 400
 
     try:
         # Call Amazon Polly to synthesize speech
+        # response = polly_client.synthesize_speech(
+        #     Text=text,
+        #     OutputFormat='mp3',
+        #     VoiceId=voice_id
+        # )
         response = polly_client.synthesize_speech(
             Text=text,
             OutputFormat='mp3',
-            VoiceId=voice_id
+            VoiceId='Matthew',
+            Engine='generative'  # Specify the neural engine
         )
     except Exception as e:
         print('Error synthesizing speech:', e)
