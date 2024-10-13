@@ -89,6 +89,8 @@ const CharacterBar = ({ role, players, gameId, playerId }) => {
       if (data.game_id === gameId) {
         setCurrentSpeaker(data.player_id);
         if (data.player_id === playerId) {
+          console.log('It is your turn to speak');
+
           // Start recording automatically if it's the player's turn
           setStartRecording(true);
         } else {
@@ -105,6 +107,23 @@ const CharacterBar = ({ role, players, gameId, playerId }) => {
     };
   }, [gameId, playerId]);
   
+
+  useEffect(() => {
+    // Existing event listeners
+
+    // Add this useEffect to handle 'speaking_queue_updated'
+    const handleSpeakingQueueUpdated = (data) => {
+      if (data.game_id === gameId) {
+        setSpeakingQueue(data.speaking_queue);
+      }
+    };
+
+    socket.on('speaking_queue_updated', handleSpeakingQueueUpdated);
+
+    return () => {
+      socket.off('speaking_queue_updated', handleSpeakingQueueUpdated);
+    };
+  }, [gameId]);
   
 
   const submitPlayerSpeech = () => {

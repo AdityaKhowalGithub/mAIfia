@@ -69,23 +69,27 @@ def handle_user_voice(player_id):
 def process_speech_queue():
     """Process speeches sequentially from the queue."""
     while True:
-        game_id, text, voice_id = speech_queue.get()  # Now unpack voice_id
+        game_id, text, voice_id, proceed_to_next_speaker_flag = speech_queue.get()
         if text:
             # Emit play speech event to the client, including voice_id
             socketio.emit('play_speech', {'game_id': game_id, 'voice_id': voice_id, 'text': text}, room=game_id)
 
-            # Ensure the next speech starts only after the current one finishes
-            time.sleep(5)
+            # Estimate speech duration (assuming 2 words per second)
+            estimated_duration = max(3, len(text.split()) / 2)
+            time.sleep(estimated_duration)
+
+            if proceed_to_next_speaker_flag:
+                proceed_to_next_speaker(game_id)
 
         speech_queue.task_done()
 
 # Start the speech processing thread
 Thread(target=process_speech_queue, daemon=True).start()
 
-def queue_speech(game_id, text, voice_id):
+def queue_speech(game_id, text, voice_id, proceed_to_next_speaker=False):
     """Add a speech to the queue safely."""
     with speech_lock:
-        speech_queue.put((game_id, text, voice_id))
+        speech_queue.put((game_id, text, voice_id, proceed_to_next_speaker))
 
 # Modify these functions to manage the phase based on the backend timer.
 def timer_thread(game_id, duration):
@@ -114,47 +118,83 @@ def start_night_phase(game_id):
     queue_speech(game_id, "Night Phase has Started", voice_id='Ruth')
     start_timer(game_id, 10)  # Start a 10-second timer for the night phase
 
+# def proceed_to_next_speaker(game_id):
+    
+#     game = games[game_id]
+#     print(game['current_speaker'])
+#     if game['current_speaker']==None:
+#         game['current_speaker'] = game['speaking_queue'][0]
+#         game['speaking_queue'] = game['speaking_queue'][1:]
+#         socketio.emit('current_speaker', {'game_id': game_id, 'player_id': game['current_speaker']}, room=game_id)
+#         socketio.emit('speaking_queue_updated', {'game_id': game_id, 'speaking_queue': game['speaking_queue']}, room=game_id)
+
+#     if game['speaking_queue']:
+    
+#         next_speaker_id = game['speaking_queue'][0]
+#         print('next speaker id', next_speaker_id)
+#         game['current_speaker'] = game['speaking_queue'][0]
+#         print("before", game['speaking_queue'])
+#         game['speaking_queue'] = game['speaking_queue'][1:]
+#         print("after", game['speaking_queue'])
+#         game['current_speaker'] = next_speaker_id
+
+#         # If the next speaker is AI, generate its speech and proceed
+#         if game['players'][next_speaker_id].get('is_ai'):
+#             print('AI Player speaking')
+#             ai_speech = generate_ai_speech(game_id)
+#             queue_speech(game_id, ai_speech, voice_id='Matthew')
+#             # After AI speech is done, proceed to the next speaker
+#             print('Proceeding to next speaker Ai Done speaking')
+#             proceed_to_next_speaker(game_id)
+#             print('done ai')
+#         else:
+#             # Notify clients about the new current speaker
+#             socketio.emit('current_speaker', {'game_id': game_id, 'player_id': next_speaker_id}, room=game_id)
+#         socketio.emit('speaking_queue_updated', {'game_id': game_id, 'speaking_queue': game['speaking_queue']}, room=game_id)
+
+        
+#     else:
+#         game['current_speaker'] = None  # No one is speaking
+#         socketio.emit('current_speaker', {'game_id': game_id, 'player_id': None}, room=game_id)
+
 def proceed_to_next_speaker(game_id):
     game = games[game_id]
     if game['speaking_queue']:
-        print(game['speaking_queue'])
         next_speaker_id = game['speaking_queue'].pop(0)
         game['current_speaker'] = next_speaker_id
-        
-        # Notify clients about the current speaker
+
+        # Notify clients about the new current speaker
         socketio.emit('current_speaker', {'game_id': game_id, 'player_id': next_speaker_id}, room=game_id)
         socketio.emit('speaking_queue_updated', {'game_id': game_id, 'speaking_queue': game['speaking_queue']}, room=game_id)
-        
-        # Automatically move to the next speaker after a delay
-        Thread(target=lambda: time.sleep(10) or proceed_to_next_speaker(game_id)).start()
-        print(f"Proceeding to next speaker. Current queue: {game['speaking_queue']}")
 
+        # If the next speaker is AI, generate its speech and proceed
+        if game['players'][next_speaker_id].get('is_ai'):
+            print('AI Player speaking')
+            ai_speech = generate_ai_speech(game_id)
+            queue_speech(game_id, ai_speech, voice_id='Matthew', proceed_to_next_speaker=True)
     else:
-        game['current_speaker'] = None
+        game['current_speaker'] = None  # No one is speaking
         socketio.emit('current_speaker', {'game_id': game_id, 'player_id': None}, room=game_id)
 
 
 
+
 def start_day_phase(game_id):
+    socketio.emit('day_started', {'game_id': game_id}, room=game_id)
+    queue_speech(game_id, "Day Phase has Started", voice_id='Ruth')
+
     game = games[game_id]
     game['phase'] = 'day'
-    
-    # Initialize speaking queue with all alive players
+    # Initialize the speaking queue with all alive players
     game['speaking_queue'] = [p_id for p_id, p in game['players'].items() if p['alive']]
-    print(game['speaking_queue'])
     game['current_speaker'] = None
-
-    # Notify clients
-    socketio.emit('day_started', {'game_id': game_id}, room=game_id)
     socketio.emit('speaking_queue_updated', {'game_id': game_id, 'speaking_queue': game['speaking_queue']}, room=game_id)
+    
+    start_timer(game_id, 40)  # Start a 5-minute timer for the day phase
 
     # Start the speaking process
     proceed_to_next_speaker(game_id)
-    
 
-
-    # socketio.emit('day_started', {'game_id': game_id}, room=game_id)
-    # queue_speech(game_id, "Day Phase has Started", voice_id='Ruth')
 
 
     # # AI Player submits a vote
@@ -163,24 +203,14 @@ def start_day_phase(game_id):
     #     if ai_player and ai_player['alive']:
     #         target_player = next((p for p in game['players'].values() if p['alive'] and p['id'] != ai_player['id']), None)
             
-    #         # data = {
-    #         #     'game_id': game_id,
-    #         #     'player_id': ai_player['id'],
-    #         #     'text': generate_ai_speech(game_id)
-    #         # }
-    #         # requests.post("127.0.0.1:5000/submit_vote", json=data)
+    #         data = {
+    #             'game_id': game_id,
+    #             'player_id': ai_player['id'],
+    #             'text': generate_ai_speech(game_id)
+    #         }
+    #         requests.post("127.0.0.1:5000/submit_vote", json=data)
             
-    #         ai_speech = generate_ai_speech(game_id)
-    #         #queue_speech(game_id, ai_speech)
-    #         queue_speech(game_id, ai_speech, voice_id='Matthew')
-
-    #         # if target_player:
-    #             # game.setdefault('votes', {})
-    #             # game['votes'][ai_player['id']] = target_player['id']
-    #             # socketio.emit('vote_cast', {'game_id': game_id, 'voter_id': ai_player['id'], 
-    #             #                             'target_id': target_player['id']}, room=game_id)
-
-    start_timer(game_id, 300)  # Start a 30-second timer for the day phase
+          
     
 def generate_ai_speech(game_id):
     def create_context(role, temperament):
@@ -379,7 +409,7 @@ def raise_hand():
         return jsonify({'status': 'Already in queue or currently speaking'}), 200
 
 
-
+# Modify the done_speaking endpoint
 @app.route('/done_speaking', methods=['POST'])
 def done_speaking():
     data = request.get_json()
@@ -396,7 +426,6 @@ def done_speaking():
     # Proceed to next speaker
     proceed_to_next_speaker(game_id)
     return jsonify({'status': 'Done speaking'}), 200
-
        
 
 
@@ -420,6 +449,7 @@ def start_game():
     socketio.emit('game_started', {'game_id': game_id, 'players': list(game['players'].values())}, room=game_id)
     print('starting day phase')
     start_day_phase(game_id)
+
     return jsonify({'status': 'Game started'}), 200
 
 @app.route('/get_role', methods=['GET'])
