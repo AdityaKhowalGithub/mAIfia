@@ -17,14 +17,16 @@ const EventDisplay = () => {
   }, []);
 
   return (
-    <div className="event-display">
+    <div>
       <div className="event-title">Event Log</div>{" "}
-      {/* Title for the event display */}
-      {events.map((event, index) => (
-        <div key={index} className="event">
-          &gt; {event} {/* Add ">" before each event */}
-        </div>
-      ))}
+      <div className="event-display">
+        {/* Title for the event display */}
+        {events.map((event, index) => (
+          <div key={index} className="event">
+            &gt; {event} {/* Add ">" before each event */}
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

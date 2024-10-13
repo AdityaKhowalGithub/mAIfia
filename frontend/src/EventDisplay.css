@@ -24,21 +24,18 @@
 
 /* Title styles */
 .event-title {
+  border-radius: 10px; /* Round the edges */
+  width: 50rem; /* Set a fixed width */
+  box-shadow: 0 4px 5px rgba(0, 0, 0, 0.5); /* Add shadow behind the display */
+  text-align: left; /* Left-align the text */
   font-size: 32px; /* Increase font size */
   font-weight: bold; /* Make text bold */
-  color: red; /* Set title color to red */
+  color: white; /* Set title color to red */
   font-family: "Courier New", Courier, monospace; /* Use a monospace font */
-  margin-bottom: 10px; /* Add space below the title */
+  margin-bottom: 5px; /*Add space below the title */
   position: sticky; /* Make the title sticky */
-  top: 0; /* Position it at the top */
-  background: rgba(
-    255,
-    255,
-    255,
-    0.1
-  ); /* Semi-transparent background for title */
   backdrop-filter: blur(10px); /* Apply blur effect for title */
-  z-index: 1; /* Keep the title above the events */
+
   padding: 10px; /* Add padding to the title */
   border-radius: 10px; /* Round the edges of the title */
 }
