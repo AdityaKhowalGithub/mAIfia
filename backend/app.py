@@ -14,6 +14,7 @@ winner = None
 
 # Initialize AWS Polly client
 polly_client = boto3.client('polly', region_name='us-east-1')
+moderator = boto3.client('polly', region_name='us-east-1')
 
 # Initialize AWS Bedrock client
 bedrock_client = boto3.client('bedrock-runtime', region_name='us-east-2')
@@ -27,23 +28,25 @@ speech_lock = Lock()
 def process_speech_queue():
     """Process speeches sequentially from the queue."""
     while True:
-        game_id, text = speech_queue.get()  # Blocks until an item is available
+        game_id, text, voice_id = speech_queue.get()  # Now unpack voice_id
         if text:
-            # Emit play speech event to the client
-            socketio.emit('play_speech', {'game_id': game_id, 'text': text}, room=game_id)
+            # Emit play speech event to the client, including voice_id
+            socketio.emit('play_speech', {'game_id': game_id, 'voice_id': voice_id, 'text': text}, room=game_id)
 
             # Ensure the next speech starts only after the current one finishes
             time.sleep(5)
 
         speech_queue.task_done()
 
+
 # Start the speech processing thread
 Thread(target=process_speech_queue, daemon=True).start()
 
-def queue_speech(game_id, text):
+def queue_speech(game_id, text, voice_id):
     """Add a speech to the queue safely."""
     with speech_lock:
-        speech_queue.put((game_id, text))
+        speech_queue.put((game_id, text, voice_id))
+
 
 
 
@@ -71,14 +74,15 @@ def start_night_phase(game_id):
     game = games[game_id]
     game['phase'] = 'night'
     socketio.emit('night_started', {'game_id': game_id}, room=game_id)
-    socketio.emit('play_speech', {'game_id': game_id, 'text': "Night Phase has Started"}, room=game_id)
+    socketio.emit('play_speech', {'game_id': game_id, 'voice': 'Ruth', 'text': "Night Phase has Started"}, room=game_id)
     start_timer(game_id, 10)  # Start a 10-second timer for the night phase
 
 def start_day_phase(game_id):
     game = games[game_id]
     game['phase'] = 'day'
     socketio.emit('day_started', {'game_id': game_id}, room=game_id)
-    socketio.emit('play_speech', {'game_id': game_id, 'text': "Day Phase has Started"}, room=game_id)
+    queue_speech(game_id, "Day Phase has Started", voice_id='Ruth')
+    #socketio.emit('play_speech', {'game_id': game_id, 'voice': 'Ruth','text': "Day Phase has Started"}, room=game_id)
 
 
       # AI Player submits a vote
@@ -87,7 +91,8 @@ def start_day_phase(game_id):
         if ai_player and ai_player['alive']:
             target_player = next((p for p in game['players'].values() if p['alive'] and p['id'] != ai_player['id']), None)
             ai_speech = generate_ai_speech(game_id)
-            queue_speech(game_id, ai_speech)
+            #queue_speech(game_id, ai_speech)
+            queue_speech(game_id, ai_speech, voice_id='Matthew')
 
             if target_player:
                 game.setdefault('votes', {})
@@ -180,7 +185,7 @@ def check_win_conditions(game_id):
     if not mafia_alive or not civilians_alive:
         winner = 'Civilians' if not mafia_alive else 'Mafia'
         game['status'] = 'ended'
-        socketio.emit('play_speech', {'game_id': game_id, 'text': f"The game has ended. The {winner} have won!"}, room=game_id)
+        socketio.emit('play_speech', {'game_id': game_id, 'voice': 'Ruth', 'text': f"The game has ended. The {winner} have won!"}, room=game_id)
         socketio.emit('game_over', {'game_id': game_id, 'winner': winner}, room=game_id)
 
 def eliminate_player(game_id):
@@ -206,7 +211,7 @@ def eliminate_player(game_id):
     
     global winner
     if not winner:
-        socketio.emit('play_speech', {'game_id': game_id, 'text': f"Player {game['players'][eliminated_player_id]['name']} has been eliminated"}, room=game_id)
+        socketio.emit('play_speech', {'game_id': game_id, 'voice': 'Ruth', 'text': f"Player {game['players'][eliminated_player_id]['name']} has been eliminated"}, room=game_id)
     
 
 # API Routes
@@ -419,22 +424,17 @@ def handle_join_room(data):
 def voice():
     data = request.get_json()
     text = data.get('text')
-    voice_id = data.get('voice_id', 'Ruth')  # Default voice
+    voice_id = data.get('voice')
+    #voice_id = data.get('voice_id', 'Ruth')  # Default voice
 
     if not text:
         return jsonify({'error': 'Text is required'}), 400
 
     try:
-        # Call Amazon Polly to synthesize speech
-        # response = polly_client.synthesize_speech(
-        #     Text=text,
-        #     OutputFormat='mp3',
-        #     VoiceId=voice_id
-        # )
         response = polly_client.synthesize_speech(
             Text=text,
             OutputFormat='mp3',
-            VoiceId='Matthew',
+            VoiceId=voice_id,
             Engine='generative'  # Specify the neural engine
         )
     except Exception as e:
