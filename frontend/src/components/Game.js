@@ -141,24 +141,6 @@ function Game() {
       socket.off('player_speech', handlePlayerSpeech);
     };
   }, [gameId]);
-  
-  useEffect(() => {
-    const handleAISpeech = async (data) => {
-      if (data.game_id === gameId) {
-        // Display the AI speech in the UI
-        console.log(`AI Player says: ${data.text}`);
-  
-        // Play the speech using the existing playSpeech function
-        await playSpeech(data.text);
-      }
-    };
-  
-    socket.on('ai_speech', handleAISpeech);
-  
-    return () => {
-      socket.off('ai_speech', handleAISpeech);
-    };
-  }, [gameId]);
 
   useEffect(() => {
     socket.on('game_started', async (data) => {

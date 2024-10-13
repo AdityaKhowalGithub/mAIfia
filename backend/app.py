@@ -1,10 +1,11 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
-import uuid, random, io, boto3
-import time
+import uuid, random, io, boto3, time, json
 from threading import Thread, Lock
 from queue import Queue
+from botocore.exceptions import ClientError
+
 
 app = Flask(__name__)
 CORS(app)
@@ -12,10 +13,10 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 winner = None
 
 # Initialize AWS Polly client
-polly_client = boto3.client('polly', region_name='us-east-1')  # Replace with your AWS region
+polly_client = boto3.client('polly', region_name='us-east-1')
 
 # Initialize AWS Bedrock client
-bedrock_client = boto3.client('bedrock', region_name='us-east-1')  # Replace with your AWS region
+bedrock_client = boto3.client('bedrock-runtime', region_name='us-east-1')
 
 # In-memory storage for players and games (for development purposes)
 players = {}
@@ -32,7 +33,7 @@ def process_speech_queue():
             socketio.emit('play_speech', {'game_id': game_id, 'text': text}, room=game_id)
 
             # Ensure the next speech starts only after the current one finishes
-            time.sleep(5)  # Adjust this time to match the speech duration or dynamically determine it
+            time.sleep(5)
 
         speech_queue.task_done()
 
@@ -72,6 +73,7 @@ def start_night_phase(game_id):
     socketio.emit('night_started', {'game_id': game_id}, room=game_id)
     socketio.emit('play_speech', {'game_id': game_id, 'text': "Night Phase has Started"}, room=game_id)
     start_timer(game_id, 10)  # Start a 10-second timer for the night phase
+
 def start_day_phase(game_id):
     game = games[game_id]
     game['phase'] = 'day'
@@ -83,7 +85,7 @@ def start_day_phase(game_id):
         ai_player = next((p for p in game['players'].values() if p['name'] == 'AI player'), None)
         if ai_player and ai_player['alive']:
             target_player = next((p for p in game['players'].values() if p['alive'] and p['id'] != ai_player['id']), None)
-            ai_speech = generate_ai_speech(game_id, ai_player)
+            ai_speech = generate_ai_speech(game_id)
             queue_speech(game_id, ai_speech)
 
             if target_player:
@@ -94,19 +96,67 @@ def start_day_phase(game_id):
 
     start_timer(game_id, 30)  # Start a 30-second timer for the day phase
 
-def generate_ai_speech(game_id, ai_player):
-    game = games[game_id]
-    player_speeches = game.get('speeches', {})
+def generate_ai_speech(game_id):
+    def create_context(role, temperament):
+        context_prompt = (
+            f"You are an AI that acts as a {role}. "
+            f"Your demeanor is {temperament}. "
+            f"Engage in the conversation by providing insights, answering questions, and "
+            f"interacting with the user in a manner that reflects your role and temperament."
+            f"the game state is as follows:"
+        )
+        return context_prompt
     
-    # Combine all speeches into a context
-    context = ' '.join(player_speeches.values())
+    game = games[game_id]
 
-    # For now, we'll use hard-coded messages
-    if ai_player['role'] == 'Mafia':
-        text = "I think we should trust each other."
-    else:
-        text = "We need to find the Mafia!"
-    return text
+    ai_player = next((p for p in game['players'].values() if p['is_ai']), None)
+
+    # default context prompt for AI speech given its role and the current game state
+    context = create_context(ai_player['role'], 'sexually aggressive')
+    for player in game['players'].values():
+        context += f"{player['name']}: {game['speeches'].get(player['id'], '')}\n"
+    context += "Now, construct a response to the following prompt in one to two sentences:"
+
+    model_id = "us.anthropic.claude-3-haiku-20240307-v1:0"
+
+    body = json.dumps({
+        "prompt": context,
+        "max_tokens_to_sample": 100,
+        "temperature": 0.1,
+        "top_p": 0.9,
+    })
+    accept = "application/json"
+    contentType = "application/json"
+
+    response_text = ""
+    try:
+        # Send the message to the model, using a basic inference configuration.
+        response = bedrock_client.invoke_model(
+            modelId="us.anthropic.claude-3-haiku-20240307-v1:0",
+            body = body,
+            accept = accept,
+            contentType = contentType,
+        )
+        # response = bedrock_client.converse(
+        #     modelId = model_id,
+        #     messages =  [
+        #             {
+        #                 "role": "user",
+        #                 "content": context
+        #             }
+        #     ],
+        #     inferenceConfig={"maxTokens":4069, "temperature": 0.1},
+        #     additionalModelRequestFields={"top_k": 250}
+        # )
+
+        # Extract and print the response text.
+        # response_text = response["output"]["message"]["content"][0]["text"]
+        # response_text = json.loads(response.get("body").read())
+    except (ClientError, Exception) as e:
+        print(f"ERROR: Can't invoke '{model_id}'. Reason: {e}")
+
+    print(f"AI Player response: {response_text}")
+    return response_text
 
 
 # Helper functions
@@ -204,14 +254,15 @@ def create_game():
 
     games[game_id] = {
         'game_id': game_id,
-        'players': {player_id: {'id': player_id, 'name': host_name, 'role': None, 'alive': True}},
+        'players': {player_id: {'id': player_id, 'name': host_name, 'role': None, 'alive': True, 'is_ai': False}},
         'status': 'waiting',
-        'include_ai': include_ai
+        'include_ai': include_ai,
+        'speeches': {}
     }
 
     if include_ai:
         ai_player_id = str(uuid.uuid4())
-        games[game_id]['players'][ai_player_id] = {'id': ai_player_id, 'name': 'AI player', 'role': None, 'alive': True}
+        games[game_id]['players'][ai_player_id] = {'id': ai_player_id, 'name': 'AI player', 'role': None, 'alive': True, 'is_ai': True}
 
     return jsonify({'game_id': game_id, 'player_id': player_id}), 200
 
@@ -306,11 +357,6 @@ def handle_join_room(data):
     join_room(game_id)
     print(f"Player {player_id} joined game {game_id}")
 
-@socketio.on('ai_speech')
-def handle_ai_speech(data):
-    game_id = data.get('game_id')
-    ai_text = data.get('text', '')
-    queue_speech(game_id, ai_text)
 
 # Voice synthesis route using AWS Polly
 @app.route('/voice', methods=['POST'])
