@@ -36,13 +36,16 @@ function Game() {
   }, [timer]);
 
   const handleTimerEnd = () => {
+    // contact the /
     if (step === 'day') setStep('night');
     if (step === 'night') setStep('day');
   };
 
   const playSpeech = async (text) => {
     try {
+      alert('trying to play speech');
       const response = await axios.post('http://127.0.0.1:5000/voice', { text }, { responseType: 'blob' });
+      console.log(response.data);
       const audioUrl = URL.createObjectURL(response.data);
       new Audio(audioUrl).play();
     } catch (error) {
@@ -90,6 +93,7 @@ function Game() {
     const handleGameOver = (data) => {
       if (data.game_id === gameId) {
         playSpeech(`${data.winner} have won the game!`);
+        alert(`${data.winner} have won the game!`);
         setStep('game_over');
       }
     };
@@ -184,7 +188,6 @@ function Game() {
     try {
       await axios.post('http://127.0.0.1:5000/start_game', { game_id: gameId });
       setStep('day');
-      playSpeech('The game has started. It is now daytime.');
     } catch (error) {
       console.error('Error starting game:', error);
     }
