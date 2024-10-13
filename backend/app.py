@@ -130,6 +130,7 @@ def generate_ai_speech(game_id):
         )
 
         # Extract response text
+        print(response)
         response_text = response.get('message', {}).get('content', '')
         print(f"AI Player response: {response_text}")
         return response_text
